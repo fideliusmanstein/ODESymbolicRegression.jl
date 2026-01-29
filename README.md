@@ -183,10 +183,10 @@ If you use this package in your research, please cite:
 
 ```bibtex
 @software{odesymbolicregression2026,
-  author = {Your Name},
+  author = {Fidelius von Manstein},
   title = {ODESymbolicRegression.jl: Discovering ODEs from Time-Series Data},
   year = {2026},
-  url = {https://github.com/YourUsername/ODESymbolicRegression.jl}
+  url = {https://github.com/fideliusmanstein/ODESymbolicRegression.jl}
 }
 ```
 
@@ -211,5 +211,5 @@ This implementation builds on:
 
 ## Contact
 
-- Issues: https://github.com/YourUsername/ODESymbolicRegression.jl/issues
-- Discussions: https://github.com/YourUsername/ODESymbolicRegression.jl/discussions
+- Issues: https://github.com/fideliusmanstein/ODESymbolicRegression.jl/issues
+- Discussions: https://github.com/fideliusmanstein/ODESymbolicRegression.jl/discussions

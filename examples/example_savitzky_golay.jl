@@ -5,8 +5,8 @@ Example demonstrating the use of Savitzky-Golay differentiation
 for ODE discovery with noisy data.
 """
 
-include("SymbolicRegressionODE.jl")
-include("benchmarkProblems/BenchmarkSystems.jl")
+include("../src/SymbolicRegressionODE.jl")
+include("../benchmark/benchmarkProblems/BenchmarkSystems.jl")
 
 using .SymbolicRegressionODE
 using .BenchmarkSystems

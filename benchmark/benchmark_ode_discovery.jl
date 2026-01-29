@@ -5,7 +5,7 @@ Comprehensive benchmarking of ODE discovery algorithm on all benchmark problems.
 Automatically compares discovered equations with ground truth.
 """
 
-include("SymbolicRegressionODE.jl")
+include("../src/SymbolicRegressionODE.jl")
 include("benchmarkProblems/BenchmarkSystems.jl")
 
 using .SymbolicRegressionODE

@@ -2,7 +2,7 @@
 Test script for equation normalization with symbolic simplification
 """
 
-include("benchmark_ode_discovery.jl")
+include("../benchmark/benchmark_ode_discovery.jl")
 using DynamicExpressions
 
 # Define square operator

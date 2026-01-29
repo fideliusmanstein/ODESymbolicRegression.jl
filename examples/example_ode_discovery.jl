@@ -5,8 +5,8 @@ Example script demonstrating symbolic regression for ODE discovery
 using the benchmark problems.
 """
 
-include("SymbolicRegressionODE.jl")
-include("benchmarkProblems/BenchmarkSystems.jl")
+include("../src/SymbolicRegressionODE.jl")
+include("../benchmark/benchmarkProblems/BenchmarkSystems.jl")
 
 using .SymbolicRegressionODE
 using .BenchmarkSystems

@@ -8,8 +8,8 @@ Test the multi-trajectory evaluation implementation.
 using Pkg
 Pkg.activate(joinpath(@__DIR__, "../.."))
 
-include("../SymbolicRegressionODE.jl")
-include("../benchmarkProblems/BenchmarkSystems.jl")
+include("../../src/SymbolicRegressionODE.jl")
+include("../../benchmark/benchmarkProblems/BenchmarkSystems.jl")
 
 using .SymbolicRegressionODE
 using .BenchmarkSystems

@@ -6,7 +6,7 @@ Test the new iterative co-refinement feature in Stage 2.
 
 ENV["SYMBOLIC_REGRESSION_PROGRESS"] = "false"
 
-include("../benchmark_ode_discovery.jl")
+include("../../benchmark/benchmark_ode_discovery.jl")
 using .SymbolicRegressionODE
 using .BenchmarkSystems
 using Test
