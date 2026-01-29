@@ -5,6 +5,12 @@ Comprehensive benchmarking of ODE discovery algorithm on all benchmark problems.
 Automatically compares discovered equations with ground truth.
 """
 
+# Activate project environment if not already activated
+if !haskey(ENV, "JULIA_PROJECT") || !endswith(ENV["JULIA_PROJECT"], "ODESymbolicRegression.jl")
+    import Pkg
+    Pkg.activate(joinpath(@__DIR__, ".."))
+end
+
 include("../src/SymbolicRegressionODE.jl")
 include("benchmarkProblems/BenchmarkSystems.jl")
 
@@ -279,6 +285,99 @@ function compute_symbolic_accuracy(discovered_tree, true_derivatives, X_features
 end
 
 """
+    evaluate_equation_similarity(ground_truth_tree, discovered_tree, sr_options, n_states; n_samples=100)
+
+Evaluate similarity between ground truth and discovered equations by testing on random inputs.
+
+# Arguments
+- `ground_truth_tree`: Ground truth equation tree
+- `discovered_tree`: Discovered equation tree  
+- `sr_options`: SymbolicRegression options
+- `n_states`: Number of state variables
+- `n_samples`: Number of random test points (default: 100 * n_states)
+
+# Returns
+Dictionary with error metrics:
+- `rmse`: Root mean squared error
+- `nrmse`: Normalized RMSE (RMSE / std of ground truth outputs)
+- `mae`: Mean absolute error
+- `max_error`: Maximum absolute error
+- `r2`: R² coefficient of determination
+"""
+function evaluate_equation_similarity(ground_truth_tree, discovered_tree, sr_options, n_states; n_samples=nothing)
+    if n_samples === nothing
+        n_samples = 100 * n_states
+    end
+    
+    # Generate random test points in a reasonable range [0.1, 10.0]
+    # Avoid zeros to prevent division issues
+    test_points = 0.1 .+ 9.9 .* rand(n_samples, n_states)
+    
+    ground_truth_outputs = Float64[]
+    discovered_outputs = Float64[]
+    
+    # Evaluate both equations on each test point
+    for i in 1:n_samples
+        x = test_points[i, :]
+        
+        try
+            # Evaluate ground truth
+            gt_val = eval_tree_array(ground_truth_tree, x, sr_options)[1]
+            
+            # Evaluate discovered equation
+            disc_val = eval_tree_array(discovered_tree, x, sr_options)[1]
+            
+            # Only include valid numeric results
+            if isfinite(gt_val) && isfinite(disc_val)
+                push!(ground_truth_outputs, gt_val)
+                push!(discovered_outputs, disc_val)
+            end
+        catch
+            # Skip points where evaluation fails
+            continue
+        end
+    end
+    
+    # If we don't have enough valid points, return NaN metrics
+    if length(ground_truth_outputs) < 10
+        return Dict(
+            "rmse" => NaN,
+            "nrmse" => NaN,
+            "mae" => NaN,
+            "max_error" => NaN,
+            "r2" => NaN,
+            "valid_samples" => length(ground_truth_outputs)
+        )
+    end
+    
+    # Compute error metrics
+    errors = discovered_outputs .- ground_truth_outputs
+    abs_errors = abs.(errors)
+    
+    rmse = sqrt(mean(errors.^2))
+    mae = mean(abs_errors)
+    max_error = maximum(abs_errors)
+    
+    # Normalized RMSE (by standard deviation of ground truth)
+    gt_std = std(ground_truth_outputs)
+    nrmse = gt_std > 1e-10 ? rmse / gt_std : NaN
+    
+    # R² coefficient (1 = perfect, 0 = no better than mean, <0 = worse than mean)
+    ss_res = sum(errors.^2)
+    ss_tot = sum((ground_truth_outputs .- mean(ground_truth_outputs)).^2)
+    r2 = ss_tot > 1e-10 ? 1.0 - (ss_res / ss_tot) : NaN
+    
+    return Dict(
+        "rmse" => rmse,
+        "nrmse" => nrmse,
+        "mae" => mae,
+        "max_error" => max_error,
+        "r2" => r2,
+        "valid_samples" => length(ground_truth_outputs)
+    )
+end
+
+"""
     benchmark_single_problem(problem_name; ode_options=nothing)
 
 Benchmark ODE discovery on a single problem.
@@ -346,6 +445,136 @@ function benchmark_single_problem(problem_name;
         ground_truth_equations_raw = get_ground_truth_equations(problem_name)
         ground_truth_equations = [normalize_equation_string(eq) for eq in ground_truth_equations_raw]
         
+        # Compute equation similarity scores
+        equation_scores = []
+        println("\n" * "="^80)
+        println("Equation Similarity Analysis")
+        println("="^80)
+        println("Testing each equation with $(100 * n_states) random input samples...")
+        
+        for i in 1:min(length(result.best_trees), length(ground_truth_equations_raw))
+            try
+                # Parse ground truth equation string
+                gt_eq_str = ground_truth_equations_raw[i]
+                # Remove "x_i' = " prefix if present
+                gt_eq_str = replace(gt_eq_str, r"^[xX]\d+'\s*=\s*" => "")
+                
+                disc_tree = result.best_trees[i]
+                
+                # Create a function to evaluate the ground truth equation
+                arg_symbols = [Symbol("x$k") for k in 1:n_states]
+                func_body = Meta.parse("begin; square(x) = x * x; $gt_eq_str; end")
+                gt_func = @eval ($(arg_symbols...),) -> $func_body
+                
+                # Direct numerical comparison
+                n_samples = 100 * n_states
+                # Use a range [0.1, 5.0] to avoid extreme values
+                test_points = 0.1 .+ 4.9 .* rand(n_samples, n_states)
+                
+                ground_truth_outputs = Float64[]
+                discovered_outputs = Float64[]
+                
+                error_count = 0
+                
+                # Evaluate both equations on test points
+                for j in 1:n_samples
+                    x_vals = test_points[j, :]
+                    
+                    try
+                        # Evaluate ground truth using the created function
+                        gt_val = gt_func(x_vals...)
+                        
+                        # Evaluate discovered tree
+                        disc_val = eval_tree_array(disc_tree, x_vals, sr_options)[1]
+                        
+                        # Only include if both are finite and not too extreme
+                        if isfinite(gt_val) && isfinite(disc_val) && 
+                           abs(gt_val) < 1e10 && abs(disc_val) < 1e10
+                            push!(ground_truth_outputs, gt_val)
+                            push!(discovered_outputs, disc_val)
+                        end
+                    catch e
+                        # Count errors for debugging
+                        error_count += 1
+                        if error_count == 1
+                            # Print first error for debugging
+                            println("    First evaluation error: ", e)
+                        end
+                        continue
+                    end
+                end
+                
+                # Compute error metrics
+                if length(ground_truth_outputs) >= 10
+                    errors = discovered_outputs .- ground_truth_outputs
+                    abs_errors = abs.(errors)
+                    
+                    rmse = sqrt(mean(errors.^2))
+                    mae = mean(abs_errors)
+                    max_error = maximum(abs_errors)
+                    
+                    gt_std = std(ground_truth_outputs)
+                    nrmse = gt_std > 1e-10 ? rmse / gt_std : NaN
+                    
+                    ss_res = sum(errors.^2)
+                    ss_tot = sum((ground_truth_outputs .- mean(ground_truth_outputs)).^2)
+                    r2 = ss_tot > 1e-10 ? 1.0 - (ss_res / ss_tot) : NaN
+                    
+                    score = Dict(
+                        "equation_index" => i,
+                        "rmse" => rmse,
+                        "nrmse" => nrmse,
+                        "mae" => mae,
+                        "max_error" => max_error,
+                        "r2" => r2,
+                        "valid_samples" => length(ground_truth_outputs)
+                    )
+                    
+                    push!(equation_scores, score)
+                    
+                    println("\nEquation $i:")
+                    println("  RMSE: ", @sprintf("%.6e", rmse))
+                    println("  NRMSE: ", @sprintf("%.4f", nrmse))
+                    println("  MAE: ", @sprintf("%.6e", mae))
+                    println("  Max Error: ", @sprintf("%.6e", max_error))
+                    println("  R²: ", @sprintf("%.6f", r2))
+                    println("  Valid samples: $(length(ground_truth_outputs))/$(n_samples)")
+                else
+                    println("\nEquation $i: Insufficient valid samples ($(length(ground_truth_outputs))/$(n_samples))")
+                    if error_count > 0
+                        println("  Errors encountered: $error_count")
+                    end
+                    push!(equation_scores, Dict(
+                        "equation_index" => i,
+                        "rmse" => NaN,
+                        "nrmse" => NaN,
+                        "mae" => NaN,
+                        "max_error" => NaN,
+                        "r2" => NaN,
+                        "valid_samples" => length(ground_truth_outputs)
+                    ))
+                end
+            catch e
+                println("\nEquation $i: Error computing similarity - ", e)
+                println("  Stack trace: ")
+                for (exc, bt) in Base.catch_stack()
+                    showerror(stdout, exc, bt)
+                    println()
+                end
+                push!(equation_scores, Dict(
+                    "equation_index" => i,
+                    "rmse" => NaN,
+                    "nrmse" => NaN,
+                    "mae" => NaN,
+                    "max_error" => NaN,
+                    "r2" => NaN,
+                    "valid_samples" => 0,
+                    "error" => string(e)
+                ))
+            end
+        end
+        println("="^80)
+        
         println("\n" * "-"^80)
         println("Overall Result: ", success ? "✓ SUCCESS" : "✗ FAILED")
         println("Discovery time: ", @sprintf("%.2f", discovery_time), " seconds")
@@ -371,6 +600,7 @@ function benchmark_single_problem(problem_name;
             "discovered_equations" => discovered_equations,
             "initial_equations" => initial_equations,
             "ground_truth_equations" => ground_truth_equations,
+            "equation_scores" => equation_scores,
             "error" => nothing
         )
         

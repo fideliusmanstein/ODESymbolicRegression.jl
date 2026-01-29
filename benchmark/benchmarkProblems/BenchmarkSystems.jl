@@ -387,14 +387,14 @@ function problem_info(problem_name::String)
 end
 
 """
-    load_problem(problem_name::String; num_trajectories::Int=1)
+    load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing)
 
 Load a specific benchmark problem dataset by name.
 
 Arguments:
 - problem_name: Name of the problem (e.g., "simpleLin1", "simpleLin2")
-- num_trajectories: Number of trajectories per experiment (default: 1)
-                    If > 1, generates multiple trajectories from different initial conditions
+- num_trajectories: Number of trajectories to use (default: nothing = use all)
+                    If specified, selects the first N trajectories from the problem
 
 Returns:
 - Vector of experiment dictionaries with keys :t, :X, :inputs, :params
@@ -411,75 +411,83 @@ Available problems:
 
 Examples:
 ```julia
-# Load standard benchmark (1 trajectory per experiment)
+# Load standard benchmark (all trajectories)
 experiments = load_problem("simpleLin1")
 
-# Load with multiple trajectories for robustness
-experiments = load_problem("simpleLin1", num_trajectories=3)
+# Load with limited trajectories
+experiments = load_problem("bifeedb1", num_trajectories=3)
 ```
 """
-function load_problem(problem_name::String; num_trajectories::Int=1)
-    # Chemical Rate Equations
-    if startswith(problem_name, "simpleLin")
-        return SimpleLinModule.generate_simplelin_experiments(
+function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing)
+    # Load the full problem dataset
+    experiments = if startswith(problem_name, "simpleLin")
+        # simpleLin supports num_trajectories natively
+        SimpleLinModule.generate_simplelin_experiments(
             noise_std = problem_name == "simpleLin1" ? 0.0 : 0.1,
-            num_trajectories = num_trajectories)
+            num_trajectories = num_trajectories === nothing ? 1 : num_trajectories)
     elseif startswith(problem_name, "simpleFb")
-        return SimpleFbModule.generate_simplefb_experiments(problem=problem_name)
+        SimpleFbModule.generate_simplefb_experiments(problem=problem_name)
     elseif startswith(problem_name, "osc")
-        return OscModule.generate_osc_experiments(problem=problem_name)
+        OscModule.generate_osc_experiments(problem=problem_name)
     elseif startswith(problem_name, "metabol")
-        return MetabolModule.generate_metabol_experiments(problem=problem_name)
+        MetabolModule.generate_metabol_experiments(problem=problem_name)
     elseif startswith(problem_name, "threeGenes")
-        return ThreeGenesModule.generate_threegenes_experiments(problem=problem_name)
+        ThreeGenesModule.generate_threegenes_experiments(problem=problem_name)
     elseif problem_name in ["feedf1", "feedf2"]
-        return FeedfModule.generate_feedf_experiments(problem=problem_name)
+        FeedfModule.generate_feedf_experiments(problem=problem_name)
     elseif problem_name in ["inhosc1", "inhosc2"]
-        return InhoscModule.generate_inhosc_experiments(problem=problem_name)
+        InhoscModule.generate_inhosc_experiments(problem=problem_name)
     elseif problem_name in ["bifeedb1", "bifeedb2"]
-        return BifeedbModule.generate_bifeedb_experiments(problem=problem_name)
+        BifeedbModule.generate_bifeedb_experiments(problem=problem_name)
     
     # S-System Problems
     elseif startswith(problem_name, "ss_cascade")
-        return SsCascadeModule.generate_ss_cascade_experiments(problem=problem_name)
+        SsCascadeModule.generate_ss_cascade_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_branch")
-        return SsBranchModule.generate_ss_branch_experiments(problem=problem_name)
+        SsBranchModule.generate_ss_branch_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_5genes")
-        return Ss5genesModule.generate_ss_5genes_experiments(problem=problem_name)
+        Ss5genesModule.generate_ss_5genes_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_15genes")
-        return Ss15genesModule.generate_ss_15genes_experiments(problem=problem_name)
+        Ss15genesModule.generate_ss_15genes_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_30genes")
-        return Ss30genesModule.generate_ss_30genes_experiments(problem=problem_name)
+        Ss30genesModule.generate_ss_30genes_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_feedf")
-        return SsFeedfModule.generate_ss_feedf_experiments(problem=problem_name)
+        SsFeedfModule.generate_ss_feedf_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_inhosc")
-        return SsInhoscModule.generate_ss_inhosc_experiments(problem=problem_name)
+        SsInhoscModule.generate_ss_inhosc_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_bifeedb")
-        return SsBifeedbModule.generate_ss_bifeedb_experiments(problem=problem_name)
+        SsBifeedbModule.generate_ss_bifeedb_experiments(problem=problem_name)
     
     # GMA Problems
     elseif startswith(problem_name, "gma_feedf")
-        return GmaFeedfModule.generate_gma_feedf_experiments(problem=problem_name)
+        GmaFeedfModule.generate_gma_feedf_experiments(problem=problem_name)
     elseif startswith(problem_name, "gma_inhosc")
-        return GmaInhoscModule.generate_gma_inhosc_experiments(problem=problem_name)
+        GmaInhoscModule.generate_gma_inhosc_experiments(problem=problem_name)
     elseif startswith(problem_name, "gma_bifeedb")
-        return GmaBifeedbModule.generate_gma_bifeedb_experiments(problem=problem_name)
+        GmaBifeedbModule.generate_gma_bifeedb_experiments(problem=problem_name)
     
     # Real Biological Problems
     elseif startswith(problem_name, "cytokine")
-        return CytokineModule.generate_cytokine_experiments(problem=problem_name)
+        CytokineModule.generate_cytokine_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_ethanolferm")
-        return SsEthanolfermModule.generate_ss_ethanolferm_experiments(problem=problem_name)
+        SsEthanolfermModule.generate_ss_ethanolferm_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_sosrepair")
-        return SsSosrepairModule.generate_ss_sosrepair_experiments(problem=problem_name)
+        SsSosrepairModule.generate_ss_sosrepair_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_cadBA")
-        return SsCadBAModule.generate_ss_cadBA_experiments(problem=problem_name)
+        SsCadBAModule.generate_ss_cadBA_experiments(problem=problem_name)
     elseif startswith(problem_name, "ss_clock")
-        return SsClockModule.generate_ss_clock_experiments(problem=problem_name)
+        SsClockModule.generate_ss_clock_experiments(problem=problem_name)
     
     else
         available = join(sort(collect(keys(list_problems()))), ", ")
         error("Unknown problem: $problem_name\nAvailable problems: $available")
+    end
+    
+    # Limit to requested number of trajectories if specified
+    if num_trajectories !== nothing && num_trajectories < length(experiments)
+        return experiments[1:num_trajectories]
+    else
+        return experiments
     end
 end
 

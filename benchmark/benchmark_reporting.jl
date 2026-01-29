@@ -90,6 +90,26 @@ function write_result_to_file(file, result)
         end
     end
     
+    # Add equation similarity scores
+    if haskey(result, "equation_scores") && !isempty(result["equation_scores"])
+        println(file, "  Equation Similarity Scores:")
+        println(file, "    (Evaluated on random test inputs)")
+        for score in result["equation_scores"]
+            i = score["equation_index"]
+            println(file, "    Equation $i:")
+            if haskey(score, "error")
+                println(file, "      Error: $(score["error"])")
+            else
+                println(file, "      RMSE: ", @sprintf("%.6e", score["rmse"]))
+                println(file, "      NRMSE: ", @sprintf("%.4f", score["nrmse"]))
+                println(file, "      MAE: ", @sprintf("%.6e", score["mae"]))
+                println(file, "      Max Error: ", @sprintf("%.6e", score["max_error"]))
+                println(file, "      R²: ", @sprintf("%.6f", score["r2"]))
+                println(file, "      Valid samples: $(score["valid_samples"])")
+            end
+        end
+    end
+    
     println(file)
     flush(file)
 end

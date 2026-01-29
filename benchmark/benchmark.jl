@@ -10,11 +10,16 @@ Features:
 - Generates detailed test reports
 
 Run with: julia --project=.. benchmark.jl
+Or from REPL: include("benchmark/benchmark.jl")
 """
 
 # =============================================================================
 # Setup and Configuration
 # =============================================================================
+
+# Activate project environment (works both from command line and REPL)
+import Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
 
 # Suppress progress bars and verbose output
 ENV["SYMBOLIC_REGRESSION_PROGRESS"] = "false"
@@ -37,19 +42,10 @@ Logging.disable_logging(Logging.Warn)
 # Custom operators
 square(x) = x * x
 
-# Problems that timeout with minimal config (too many variables/experiments)
-const TIMEOUT_PROBLEMS = [
-    "ss_15genes1",   # 15 states, 10-20 experiments
-    "ss_15genes2",
-    "ss_30genes1",   # 30 states, 8-20 experiments, up to 41 time points
-    "ss_30genes2",
-    "ss_30genes3"
-]
-
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative = 100,
-    niterations_integration = 20,
+    niterations_derivative = 3,  # Use 3 for testing; 100 for production
+    niterations_integration = 3,  # Use 3 for testing; 20 for production
     complexity_derivative = 15,
     complexity_integration = 15,
     binary_operators = (+, *, -, /),
@@ -67,6 +63,15 @@ const MAX_PROBLEMS_TO_TEST = 1  # Options: nothing, 5, 10, 20, etc.
 
 # Timeout protection (seconds, nothing = no timeout)
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
+
+# Problems that timeout with minimal config (too many variables/experiments)
+const TIMEOUT_PROBLEMS = [
+    "ss_15genes1",   # 15 states, 10-20 experiments
+    "ss_15genes2",
+    "ss_30genes1",   # 30 states, 8-20 experiments, up to 41 time points
+    "ss_30genes2",
+    "ss_30genes3"
+]
 
 # =============================================================================
 # Helper Functions
