@@ -1,0 +1,32 @@
+# Julia
+Manifest.toml
+*.jl.*.cov
+*.jl.cov
+*.jl.mem
+.DS_Store
+/Manifest.toml
+/dev/
+/docs/build/
+/docs/site/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Output files
+outputs/
+benchmark_results/
+*.txt
+!LICENSE
+!README.md
+
+# Temporary files
+*.tmp
+*.log
