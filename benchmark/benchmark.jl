@@ -31,6 +31,10 @@ using .SymbolicRegressionODE
 using Dates
 using Logging
 using Test
+using Random
+
+# Set random seed for reproducibility
+Random.seed!(42)
 
 # Suppress ODE solver warnings
 Logging.disable_logging(Logging.Warn)

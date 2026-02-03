@@ -107,6 +107,59 @@ export CytokineModule, SsEthanolfermModule, SsSosrepairModule, SsCadBAModule, Ss
 export load_problem, list_problems, problem_info
 
 """
+Registry mapping problem name prefixes to their module and generation functions.
+"""
+const PROBLEM_REGISTRY = [
+    # Chemical Rate Problems
+    ("simpleLin", SimpleLinModule, :generate_simplelin_experiments, :generate_simplelin_data, false, false),
+    ("simpleFb", SimpleFbModule, :generate_simplefb_experiments, :generate_simplefb_data, false, false),
+    ("osc", OscModule, :generate_osc_experiments, :generate_osc_data, false, false),
+    ("metabol", MetabolModule, :generate_metabol_experiments, :generate_metabol_data, false, true),
+    ("threeGenes", ThreeGenesModule, :generate_threegenes_experiments, :generate_threegenes_data, false, false),
+    ("bifeedb", BifeedbModule, :generate_bifeedb_experiments, :generate_bifeedb_data, false, false),
+    ("feedf", FeedfModule, :generate_feedf_experiments, :generate_feedf_data, false, true),
+    ("inhosc", InhoscModule, :generate_inhosc_experiments, :generate_inhosc_data, true, true),
+    
+    # S-System Problems (check longer prefixes first to avoid conflicts)
+    ("ss_cascade", SsCascadeModule, :generate_ss_cascade_experiments, :generate_ss_cascade_data, true, false),
+    ("ss_branch", SsBranchModule, :generate_ss_branch_experiments, :generate_ss_branch_data, true, false),
+    ("ss_5genes", Ss5genesModule, :generate_ss_5genes_experiments, :generate_ss_5genes_data, true, false),
+    ("ss_15genes", Ss15genesModule, :generate_ss_15genes_experiments, :generate_ss_15genes_data, true, false),
+    ("ss_30genes", Ss30genesModule, :generate_ss_30genes_experiments, :generate_ss_30genes_data, true, false),
+    ("ss_bifeedb", SsBifeedbModule, :generate_ss_bifeedb_experiments, :generate_ss_bifeedb_data, true, false),
+    ("ss_feedf", SsFeedfModule, :generate_ss_feedf_experiments, :generate_ss_feedf_data, true, false),
+    ("ss_inhosc", SsInhoscModule, :generate_ss_inhosc_experiments, :generate_ss_inhosc_data, true, false),
+    ("ss_ethanolferm", SsEthanolfermModule, :generate_ss_ethanolferm_experiments, :generate_ss_ethanolferm_data, true, false),
+    ("ss_sosrepair", SsSosrepairModule, :generate_ss_sosrepair_experiments, :generate_ss_sosrepair_data, true, false),
+    ("ss_cadBA", SsCadBAModule, :generate_ss_cadBA_experiments, :generate_ss_cadBA_data, true, false),
+    ("ss_clock", SsClockModule, :generate_ss_clock_experiments, :generate_ss_clock_data, true, false),
+    
+    # GMA Problems (check before "gma" would match)
+    ("gma_bifeedb", GmaBifeedbModule, :generate_gma_bifeedb_experiments, :generate_gma_bifeedb_data, true, false),
+    ("gma_feedf", GmaFeedfModule, :generate_gma_feedf_experiments, :generate_gma_feedf_data, true, true),
+    ("gma_inhosc", GmaInhoscModule, :generate_gma_inhosc_experiments, :generate_gma_inhosc_data, true, true),
+    
+    # Real Biological Problems
+    ("cytokine", CytokineModule, :generate_cytokine_experiments, :generate_cytokine_data, true, false),
+]
+
+"""
+    find_problem_config(problem_name::String)
+
+Find the module configuration for a given problem name.
+Returns (prefix, module, exp_func, data_func, returns_3tuple, needs_inputs).
+"""
+function find_problem_config(problem_name::String)
+    for config in PROBLEM_REGISTRY
+        if startswith(problem_name, config[1])
+            return config
+        end
+    end
+    available = join(sort(collect(keys(list_problems()))), ", ")
+    error("Unknown problem: $problem_name\nAvailable problems: $available")
+end
+
+"""
     list_problems()
 
 List all available benchmark problems with their characteristics.
@@ -419,68 +472,17 @@ experiments = load_problem("bifeedb1", num_trajectories=3)
 ```
 """
 function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing)
-    # Load the full problem dataset
-    experiments = if startswith(problem_name, "simpleLin")
-        # simpleLin supports num_trajectories natively
-        SimpleLinModule.generate_simplelin_experiments(
+    # Find the problem configuration
+    prefix, module_ref, exp_func, data_func, returns_3tuple, needs_inputs = find_problem_config(problem_name)
+    
+    # Special handling for simpleLin which supports num_trajectories natively
+    experiments = if prefix == "simpleLin"
+        getfield(module_ref, exp_func)(
             noise_std = problem_name == "simpleLin1" ? 0.0 : 0.1,
             num_trajectories = num_trajectories === nothing ? 1 : num_trajectories)
-    elseif startswith(problem_name, "simpleFb")
-        SimpleFbModule.generate_simplefb_experiments(problem=problem_name)
-    elseif startswith(problem_name, "osc")
-        OscModule.generate_osc_experiments(problem=problem_name)
-    elseif startswith(problem_name, "metabol")
-        MetabolModule.generate_metabol_experiments(problem=problem_name)
-    elseif startswith(problem_name, "threeGenes")
-        ThreeGenesModule.generate_threegenes_experiments(problem=problem_name)
-    elseif problem_name in ["feedf1", "feedf2"]
-        FeedfModule.generate_feedf_experiments(problem=problem_name)
-    elseif problem_name in ["inhosc1", "inhosc2"]
-        InhoscModule.generate_inhosc_experiments(problem=problem_name)
-    elseif problem_name in ["bifeedb1", "bifeedb2"]
-        BifeedbModule.generate_bifeedb_experiments(problem=problem_name)
-    
-    # S-System Problems
-    elseif startswith(problem_name, "ss_cascade")
-        SsCascadeModule.generate_ss_cascade_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_branch")
-        SsBranchModule.generate_ss_branch_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_5genes")
-        Ss5genesModule.generate_ss_5genes_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_15genes")
-        Ss15genesModule.generate_ss_15genes_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_30genes")
-        Ss30genesModule.generate_ss_30genes_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_feedf")
-        SsFeedfModule.generate_ss_feedf_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_inhosc")
-        SsInhoscModule.generate_ss_inhosc_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_bifeedb")
-        SsBifeedbModule.generate_ss_bifeedb_experiments(problem=problem_name)
-    
-    # GMA Problems
-    elseif startswith(problem_name, "gma_feedf")
-        GmaFeedfModule.generate_gma_feedf_experiments(problem=problem_name)
-    elseif startswith(problem_name, "gma_inhosc")
-        GmaInhoscModule.generate_gma_inhosc_experiments(problem=problem_name)
-    elseif startswith(problem_name, "gma_bifeedb")
-        GmaBifeedbModule.generate_gma_bifeedb_experiments(problem=problem_name)
-    
-    # Real Biological Problems
-    elseif startswith(problem_name, "cytokine")
-        CytokineModule.generate_cytokine_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_ethanolferm")
-        SsEthanolfermModule.generate_ss_ethanolferm_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_sosrepair")
-        SsSosrepairModule.generate_ss_sosrepair_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_cadBA")
-        SsCadBAModule.generate_ss_cadBA_experiments(problem=problem_name)
-    elseif startswith(problem_name, "ss_clock")
-        SsClockModule.generate_ss_clock_experiments(problem=problem_name)
-    
     else
-        available = join(sort(collect(keys(list_problems()))), ", ")
-        error("Unknown problem: $problem_name\nAvailable problems: $available")
+        # Standard: call generate_*_experiments(problem=problem_name)
+        getfield(module_ref, exp_func)(problem=problem_name)
     end
     
     # Handle num_trajectories parameter
@@ -514,68 +516,36 @@ function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}
                 # Try to call the appropriate generation function
                 try
                     local t, X
-                    has_inputs = haskey(base_exp, :inputs) && !isempty(base_exp[:inputs])
                     tspan = (base_exp[:t][1], base_exp[:t][end])
                     n_points = length(base_exp[:t])
                     
-                    # Determine which module to use based on problem name
-                    if startswith(problem_name, "simpleFb")
-                        t, X = SimpleFbModule.generate_simplefb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "simpleLin")
-                        t, X = SimpleLinModule.generate_simplelin_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "osc")
-                        t, X = OscModule.generate_osc_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "metabol")
-                        t, X = MetabolModule.generate_metabol_data(X0=X0_new, tspan=tspan, n_points=n_points, 
-                                                                     inputs=get(base_exp, :inputs, Dict()), noise_std=0.0)
-                    elseif startswith(problem_name, "threeGenes")
-                        t, X = ThreeGenesModule.generate_threegenes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "bifeedb")
-                        t, X = BifeebdModule.generate_bifeedb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "feedf")
-                        t, X = FeedfModule.generate_feedf_data(X0=X0_new, tspan=tspan, n_points=n_points,
-                                                                inputs=get(base_exp, :inputs, Dict()), noise_std=0.0)
-                    elseif startswith(problem_name, "inhosc")
-                        t, X, _ = InhoscModule.generate_inhosc_data(X0=X0_new, tspan=tspan, n_points=n_points,
-                                                                      inputs=get(base_exp, :inputs, Dict()), noise_std=0.0)
-                    elseif startswith(problem_name, "cytokine")
-                        t, X, _ = CytokineModule.generate_cytokine_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_ethanolferm")
-                        t, X, _ = SsEthanolfermModule.generate_ss_ethanolferm_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_sosrepair")
-                        t, X, _ = SsSosrepairModule.generate_ss_sosrepair_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_cadBA")
-                        t, X, _ = SsCadBAModule.generate_ss_cadBA_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_clock")
-                        t, X, _ = SsClockModule.generate_ss_clock_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_cascade")
-                        t, X, _ = SsCascadeModule.generate_ss_cascade_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_branch")
-                        t, X, _ = SsBranchModule.generate_ss_branch_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_bifeedb")
-                        t, X, _ = SsBifeebdModule.generate_ss_bifeedb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_feedf")
-                        t, X, _ = SsFeedfModule.generate_ss_feedf_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_inhosc")
-                        t, X, _ = SsInhoscModule.generate_ss_inhosc_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_5genes")
-                        t, X, _ = Ss5GenesModule.generate_ss_5genes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_15genes")
-                        t, X, _ = Ss15GenesModule.generate_ss_15genes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "ss_30genes")
-                        t, X, _ = Ss30GenesModule.generate_ss_30genes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "gma_bifeedb")
-                        t, X, _ = GmaBifeebdModule.generate_gma_bifeedb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
-                    elseif startswith(problem_name, "gma_feedf")
-                        t, X, _ = GmaFeedfModule.generate_gma_feedf_data(X0=X0_new, tspan=tspan, n_points=n_points,
-                                                                          In1_const=1.0, In2_const=1.0, noise_std=0.0)
-                    elseif startswith(problem_name, "gma_inhosc")
-                        t, X, _ = GmaInhoscModule.generate_gma_inhosc_data(X0=X0_new, tspan=tspan, n_points=n_points,
-                                                                            In1_const=1.0, In2_const=1.0, noise_std=0.0)
+                    # Find configuration for this problem
+                    _, module_ref, _, data_func, returns_3tuple, needs_inputs = find_problem_config(problem_name)
+                    
+                    # Build arguments for data generation function
+                    args = Dict(:X0 => X0_new, :tspan => tspan, :n_points => n_points, :noise_std => 0.0)
+                    
+                    # Add inputs if needed
+                    if needs_inputs
+                        if startswith(problem_name, "gma_feedf") || startswith(problem_name, "gma_inhosc")
+                            # GMA problems with special input parameters
+                            args[:In1_const] = 1.0
+                            args[:In2_const] = 1.0
+                        else
+                            # Standard input handling
+                            args[:inputs] = get(base_exp, :inputs, Dict())
+                        end
+                    end
+                    
+                    # Call the generation function
+                    gen_func = getfield(module_ref, data_func)
+                    result = gen_func(; args...)
+                    
+                    # Extract t and X based on return type
+                    if returns_3tuple
+                        t, X, _ = result
                     else
-                        # Unknown problem type - skip generation
-                        @warn "No generation function available for problem type: $problem_name"
-                        continue
+                        t, X = result
                     end
                     
                     # Create new experiment dict
