@@ -8,9 +8,8 @@ Represents equations as expression trees for better programmatic access.
 module SimpleLinProblemModule
 
 using DifferentialEquations
-using SymbolicRegression: Node
+using SymbolicRegression
 using ..BaseProblemModule
-using ..TreeBuilderModule
 
 export SimpleLinProblem, SimpleLin1, SimpleLin2
 
@@ -34,7 +33,7 @@ struct SimpleLinProblem <: BenchmarkProblem
     name::String
     n_states::Int
     n_inputs::Int
-    tree_equations::Vector{Node}
+    tree_equations::Vector
     parameter_values::Dict{Symbol, Float64}
     default_ic::Vector{Float64}
     default_tspan::Tuple{Float64, Float64}
@@ -51,28 +50,23 @@ struct SimpleLinProblem <: BenchmarkProblem
             :k4 => 1.0
         )
         
-        # Build expression trees for the ODEs
-        # Variable indices: X3=1, X4=2, X5=3 (state vars)
-        # Inputs will be provided separately: X1=input 1, X2=input 2
+        # Build expression trees using parse_expression
+        # Variable mapping: x1=X3, x2=X4, x3=X5, x4=X1(input), x5=X2(input)
+        var_names = ["x1", "x2", "x3", "x4", "x5"]
+        binary_ops = [+, -, *, /]
+        unary_ops = Function[]
         
-        x3 = var(1)  # State 1 = X3
-        x4 = var(2)  # State 2 = X4
-        x5 = var(3)  # State 3 = X5
+        # X3' = -1.0*x1 + 1.0*x4*x2
+        eq1_str = "-1.0*x1 + 1.0*x4*x2"
+        eq1 = parse_expression(eq1_str; binary_operators=binary_ops, unary_operators=unary_ops, variable_names=var_names)
         
-        # Note: Inputs X1 and X2 will be added as features 4 and 5
-        x1_input = var(4)  # Input 1 = X1
-        x2_input = var(5)  # Input 2 = X2
+        # X4' = 1.0*x1 - 1.0*x4*x2 + 1.0*x3 - 1.0*x5*x2
+        eq2_str = "1.0*x1 - 1.0*x4*x2 + 1.0*x3 - 1.0*x5*x2"
+        eq2 = parse_expression(eq2_str; binary_operators=binary_ops, unary_operators=unary_ops, variable_names=var_names)
         
-        k1, k2, k3, k4 = 1.0, 1.0, 1.0, 1.0
-        
-        # X3' = -k1·X3 + k2·X1·X4
-        eq1 = -k1 * x3 + k2 * x1_input * x4
-        
-        # X4' = k1·X3 - k2·X1·X4 + k3·X5 - k4·X2·X4
-        eq2 = k1 * x3 - k2 * x1_input * x4 + k3 * x5 - k4 * x2_input * x4
-        
-        # X5' = -k3·X5 + k4·X2·X4
-        eq3 = -k3 * x5 + k4 * x2_input * x4
+        # X5' = -1.0*x3 + 1.0*x5*x2
+        eq3_str = "-1.0*x3 + 1.0*x5*x2"
+        eq3 = parse_expression(eq3_str; binary_operators=binary_ops, unary_operators=unary_ops, variable_names=var_names)
         
         trees = [eq1, eq2, eq3]
         
@@ -147,7 +141,7 @@ function BaseProblemModule.generate_data(
     tspan::Tuple{Float64,Float64}=problem.default_tspan,
     n_points::Int=problem.default_n_points,
     noise_std::Float64=problem.default_noise,
-    input_values::Dict{Symbol,Union{Float64,Function}}=Dict(:X1 => 3.0, :X2 => 2.0)
+    input_values::Dict=Dict{Symbol,Float64}(:X1 => 3.0, :X2 => 2.0)
 )
     # Create input functions
     inputs = Dict{Symbol,Function}()
@@ -171,7 +165,7 @@ function BaseProblemModule.generate_data(
     sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval)
     
     t = sol.t
-    X = hcat(sol.u...)'
+    X = collect(hcat(sol.u...)')  # Convert Adjoint to Matrix
     
     # Add noise
     BaseProblemModule.add_gaussian_noise!(X, noise_std)
