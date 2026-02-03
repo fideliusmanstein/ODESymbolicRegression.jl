@@ -393,29 +393,38 @@ Load a specific benchmark problem dataset by name.
 
 Arguments:
 - problem_name: Name of the problem (e.g., "simpleLin1", "simpleLin2")
-- num_trajectories: Number of trajectories to use (default: nothing = use all)
-                    If specified, selects the first N trajectories from the problem
+- num_trajectories: Number of trajectories per experiment (for problems that support it)
+                    or total number of experiments to load (for other problems)
+                    Default: nothing (use problem defaults)
 
 Returns:
-- Vector of experiment dictionaries with keys :t, :X, :inputs, :params
+- Vector of experiment dictionaries with keys :t, :X, :inputs, :params (and :trajectory, :ic for multi-trajectory problems)
+
+Trajectory Support:
+- simpleLin1, simpleLin2: NATIVE support - generates num_trajectories per experiment
+  (8 experiments × num_trajectories = 8N total when num_trajectories=N)
+- All other problems: num_trajectories limits total experiments returned
 
 Available problems:
-- simpleLin1, simpleLin2
-- simpleFb1, simpleFb2, simpleFb3, simpleFb4
-- osc1, osc2
-- metabol1, metabol2, metabol3
-- threeGenes1, threeGenes2
-- feedf1, feedf2
-- inhosc1, inhosc2
-- bifeedb1, bifeedb2
+- simpleLin1, simpleLin2 (3 states, 2 inputs, 8 input combinations)
+- simpleFb1, simpleFb2, simpleFb3, simpleFb4 (3 states, feedback)
+- osc1, osc2 (3 states, oscillator)
+- metabol1, metabol2, metabol3 (5 states, 2 inputs, Michaelis-Menten)
+- threeGenes1, threeGenes2 (8 states, gene network)
+- feedf1, feedf2 (4 states, 2 inputs)
+- inhosc1, inhosc2 (2-4 states, 2 inputs)
+- bifeedb1, bifeedb2 (4-5 states)
 
 Examples:
 ```julia
-# Load standard benchmark (all trajectories)
-experiments = load_problem("simpleLin1")
+# Load standard benchmark (default trajectories)
+experiments = load_problem("simpleLin1")  # Returns 8 experiments
 
-# Load with limited trajectories
-experiments = load_problem("bifeedb1", num_trajectories=3)
+# Load with multiple trajectories per experiment (simpleLin only)
+experiments = load_problem("simpleLin1", num_trajectories=3)  # Returns 24 experiments (8 × 3)
+
+# Load limited experiments (other problems)
+experiments = load_problem("bifeedb1", num_trajectories=3)  # Returns first 3 of 16 experiments
 ```
 """
 function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing)
@@ -483,12 +492,15 @@ function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}
         error("Unknown problem: $problem_name\nAvailable problems: $available")
     end
     
-    # Limit to requested number of trajectories if specified
-    if num_trajectories !== nothing && num_trajectories < length(experiments)
-        return experiments[1:num_trajectories]
-    else
-        return experiments
+    # For problems that DON'T natively support num_trajectories, limit the total experiments
+    # simpleLin natively generates num_trajectories per experiment, so don't limit it
+    if num_trajectories !== nothing && !startswith(problem_name, "simpleLin")
+        if num_trajectories < length(experiments)
+            return experiments[1:num_trajectories]
+        end
     end
+    
+    return experiments
 end
 
 end # module
