@@ -483,9 +483,124 @@ function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}
         error("Unknown problem: $problem_name\nAvailable problems: $available")
     end
     
-    # Limit to requested number of trajectories if specified
-    if num_trajectories !== nothing && num_trajectories < length(experiments)
-        return experiments[1:num_trajectories]
+    # Handle num_trajectories parameter
+    if num_trajectories !== nothing
+        n_available = length(experiments)
+        
+        if num_trajectories <= n_available
+            # Just take the first num_trajectories experiments
+            return experiments[1:num_trajectories]
+        else
+            # Need more trajectories than available - generate additional ones
+            # by perturbing initial conditions of existing experiments
+            additional_needed = num_trajectories - n_available
+            extended_experiments = copy(experiments)
+            
+            for i in 1:additional_needed
+                # Use existing experiment as template (cycle through if needed)
+                base_idx = ((i - 1) % n_available) + 1
+                base_exp = experiments[base_idx]
+                
+                # Create perturbed initial condition
+                # Use small random perturbations (5-10% of initial values)
+                X0_base = base_exp[:X][1, :]
+                perturbation_scale = 0.05 + 0.05 * rand()  # 5-10%
+                X0_new = X0_base .* (1.0 .+ perturbation_scale .* randn(length(X0_base)))
+                
+                # Make sure new initial conditions are positive (for biological systems)
+                X0_new = max.(X0_new, 1e-6)
+                
+                # Generate new trajectory with perturbed IC
+                # Try to call the appropriate generation function
+                try
+                    local t, X
+                    has_inputs = haskey(base_exp, :inputs) && !isempty(base_exp[:inputs])
+                    tspan = (base_exp[:t][1], base_exp[:t][end])
+                    n_points = length(base_exp[:t])
+                    
+                    # Determine which module to use based on problem name
+                    if startswith(problem_name, "simpleFb")
+                        t, X = SimpleFbModule.generate_simplefb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "simpleLin")
+                        t, X = SimpleLinModule.generate_simplelin_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "osc")
+                        t, X = OscModule.generate_osc_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "metabol")
+                        t, X = MetabolModule.generate_metabol_data(X0=X0_new, tspan=tspan, n_points=n_points, 
+                                                                     inputs=get(base_exp, :inputs, Dict()), noise_std=0.0)
+                    elseif startswith(problem_name, "threeGenes")
+                        t, X = ThreeGenesModule.generate_threegenes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "bifeedb")
+                        t, X = BifeebdModule.generate_bifeedb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "feedf")
+                        t, X = FeedfModule.generate_feedf_data(X0=X0_new, tspan=tspan, n_points=n_points,
+                                                                inputs=get(base_exp, :inputs, Dict()), noise_std=0.0)
+                    elseif startswith(problem_name, "inhosc")
+                        t, X, _ = InhoscModule.generate_inhosc_data(X0=X0_new, tspan=tspan, n_points=n_points,
+                                                                      inputs=get(base_exp, :inputs, Dict()), noise_std=0.0)
+                    elseif startswith(problem_name, "cytokine")
+                        t, X, _ = CytokineModule.generate_cytokine_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_ethanolferm")
+                        t, X, _ = SsEthanolfermModule.generate_ss_ethanolferm_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_sosrepair")
+                        t, X, _ = SsSosrepairModule.generate_ss_sosrepair_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_cadBA")
+                        t, X, _ = SsCadBAModule.generate_ss_cadBA_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_clock")
+                        t, X, _ = SsClockModule.generate_ss_clock_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_cascade")
+                        t, X, _ = SsCascadeModule.generate_ss_cascade_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_branch")
+                        t, X, _ = SsBranchModule.generate_ss_branch_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_bifeedb")
+                        t, X, _ = SsBifeebdModule.generate_ss_bifeedb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_feedf")
+                        t, X, _ = SsFeedfModule.generate_ss_feedf_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_inhosc")
+                        t, X, _ = SsInhoscModule.generate_ss_inhosc_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_5genes")
+                        t, X, _ = Ss5GenesModule.generate_ss_5genes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_15genes")
+                        t, X, _ = Ss15GenesModule.generate_ss_15genes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "ss_30genes")
+                        t, X, _ = Ss30GenesModule.generate_ss_30genes_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "gma_bifeedb")
+                        t, X, _ = GmaBifeebdModule.generate_gma_bifeedb_data(X0=X0_new, tspan=tspan, n_points=n_points, noise_std=0.0)
+                    elseif startswith(problem_name, "gma_feedf")
+                        t, X, _ = GmaFeedfModule.generate_gma_feedf_data(X0=X0_new, tspan=tspan, n_points=n_points,
+                                                                          In1_const=1.0, In2_const=1.0, noise_std=0.0)
+                    elseif startswith(problem_name, "gma_inhosc")
+                        t, X, _ = GmaInhoscModule.generate_gma_inhosc_data(X0=X0_new, tspan=tspan, n_points=n_points,
+                                                                            In1_const=1.0, In2_const=1.0, noise_std=0.0)
+                    else
+                        # Unknown problem type - skip generation
+                        @warn "No generation function available for problem type: $problem_name"
+                        continue
+                    end
+                    
+                    # Create new experiment dict
+                    new_exp = Dict(
+                        :experiment => n_available + i,
+                        :t => t,
+                        :X => X,
+                        :X0 => X0_new
+                    )
+                    
+                    # Preserve inputs if present
+                    if haskey(base_exp, :inputs)
+                        new_exp[:inputs] = base_exp[:inputs]
+                    end
+                    
+                    push!(extended_experiments, new_exp)
+                catch e
+                    # If generation fails, just duplicate the base experiment with warning
+                    @warn "Could not generate new trajectory for $problem_name, duplicating experiment $base_idx"
+                    push!(extended_experiments, base_exp)
+                end
+            end
+            
+            return extended_experiments
+        end
     else
         return experiments
     end

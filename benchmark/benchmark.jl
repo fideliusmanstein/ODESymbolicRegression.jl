@@ -26,11 +26,11 @@ ENV["SYMBOLIC_REGRESSION_PROGRESS"] = "false"
 
 include("benchmark_ode_discovery.jl")
 include("benchmark_reporting.jl")
-using .SymbolicRegressionODE
 using .BenchmarkSystems
-using Test
-using Logging
+using .SymbolicRegressionODE
 using Dates
+using Logging
+using Test
 
 # Suppress ODE solver warnings
 Logging.disable_logging(Logging.Warn)
