@@ -43,8 +43,24 @@ struct MetabolProblem <: BenchmarkProblem
     default_n_points::Int
     default_noise::Float64
     experiment_configs::Vector{NamedTuple}
+    variant::Int
+    input_functions::Dict{Symbol, Function}
     
-    function MetabolProblem(; noise_std=0.0, n_points=7)
+    function MetabolProblem(; problem_name="metabol1")
+        variant = parse(Int, replace(problem_name, r"metabol" => ""))
+        
+        # Variant-specific parameters
+        if variant == 1
+            noise_std = 0.0
+            n_points = 7
+        elseif variant == 2
+            noise_std = 0.1
+            n_points = 21
+        else  # variant == 3
+            noise_std = 0.2
+            n_points = 21
+        end
+        
         # Parameters (from Arkin & Ross 1995)
         params = Dict(
             :Vmax1 => 5.0, :Vmax2 => 5.0, :Vmax3 => 1.0, :Vmax4 => 1.0,
@@ -73,14 +89,28 @@ struct MetabolProblem <: BenchmarkProblem
         
         # 12 experiments with different input combinations
         experiment_configs = [
-            (X1=0.5, X2=0.5), (X1=0.5, X2=1.0), (X1=0.5, X2=2.0),
-            (X1=1.0, X2=0.5), (X1=1.0, X2=1.0), (X1=1.0, X2=2.0),
-            (X1=2.0, X2=0.5), (X1=2.0, X2=1.0), (X1=2.0, X2=2.0),
-            (X1=0.1, X2=0.1), (X1=5.0, X2=5.0), (X1=10.0, X2=10.0)
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=0.5, X2=0.5),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=0.5, X2=1.0),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=0.5, X2=2.0),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=1.0, X2=0.5),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=1.0, X2=1.0),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=1.0, X2=2.0),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=2.0, X2=0.5),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=2.0, X2=1.0),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=2.0, X2=2.0),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=0.1, X2=0.1),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=5.0, X2=5.0),
+            (X0=[10.0, 0.1, 0.1, 1.0, 1.0], X1=10.0, X2=10.0)
         ]
         
+        # Input functions (constant inputs)
+        input_funcs = Dict(
+            :X1 => (t -> 1.0),  # Will be overridden by experiment configs
+            :X2 => (t -> 1.0)
+        )
+        
         new(
-            "metabol",
+            problem_name,
             5,  # n_states
             2,  # n_inputs
             trees,
@@ -89,7 +119,9 @@ struct MetabolProblem <: BenchmarkProblem
             (0.0, 150.0),  # default_tspan
             n_points,
             noise_std,
-            experiment_configs
+            experiment_configs,
+            variant,
+            input_funcs
         )
     end
 end
@@ -126,15 +158,19 @@ function evaluate_system(problem::MetabolProblem, X, inputs, t)
     return [dX3, dX4, dX5, dX6, dX7]
 end
 
+function generate_varied_ic(problem::MetabolProblem, base_ic::Vector{Float64})
+    return base_ic .* (1.0 .+ 0.1 .* randn(problem.n_states))
+end
+
 function BaseProblemModule.generate_data(
     problem::MetabolProblem;
     X0::Vector{Float64}=problem.default_ic,
     tspan::Tuple{Float64,Float64}=problem.default_tspan,
     n_points::Int=problem.default_n_points,
     noise_std::Float64=problem.default_noise,
-    input_values::Dict=Dict{Symbol,Float64}(:X1 => 1.0, :X2 => 1.0)
+    input_values::Dict=problem.input_functions
 )
-    # Create input functions
+    # Create input functions (handle both constant and function inputs)
     inputs = Dict{Symbol,Function}()
     for (key, val) in input_values
         if val isa Function
@@ -176,16 +212,14 @@ function BaseProblemModule.generate_experiments(
     noise = noise_std === nothing ? problem.default_noise : noise_std
     npts = n_points === nothing ? problem.default_n_points : n_points
     
-    experiments = []
-    
-    for (exp_idx, exp_config) in enumerate(problem.experiment_configs)
-        for traj_idx in 1:num_trajectories
-            # Use default IC for first trajectory, vary for others
-            X0 = if traj_idx == 1
-                problem.default_ic
-            else
-                # Vary initial conditions slightly
-                problem.default_ic .* (1.0 .+ 0.1 .* randn(length(problem.default_ic)))
+    experiments = config IC for first trajectory, vary for others
+            X0 = traj_idx == 1 ? exp_config.X0 : generate_varied_ic(problem, exp_config.X0)
+            
+            # Generate data with constant input values
+            input_vals = Dict{Symbol,Function}(
+                :X1 => (t -> exp_config.X1),
+                :X2 => (t -> exp_config.X2)
+            m.default_ic)))
             end
             
             # Generate data
@@ -225,8 +259,8 @@ function BaseProblemModule.get_equation_strings(problem::MetabolProblem)
 end
 
 # Problem variants
-Metabol1() = MetabolProblem(noise_std=0.0, n_points=7)
-Metabol2() = MetabolProblem(noise_std=0.1, n_points=21)
-Metabol3() = MetabolProblem(noise_std=0.2, n_points=21)
+Metabol1() = MetabolProblem(problem_name="metabol1")
+Metabol2() = MetabolProblem(problem_name="metabol2")
+Metabol3() = MetabolProblem(problem_name="metabol3")
 
 end # module

@@ -28,7 +28,7 @@ using .OscProblemModule: Osc1, Osc2
 using .BifeedbProblemModule: Bifeedb1, Bifeedb2
 using .FeedfProblemModule: Feedf1, Feedf2, FeedfProblem
 using .InhoscProblemModule: Inhosc1, Inhosc2, InhoscProblem
-using .MetabolProblemModule: MetabolProblem
+using .MetabolProblemModule: Metabol1, Metabol2, Metabol3, MetabolProblem
 
 export load_problem_unified, list_problems_unified, get_problem_trees
 export SimpleLin1, SimpleLin2, SimpleFb1, SimpleFb2, SimpleFb3, SimpleFb4
@@ -36,6 +36,7 @@ export Osc1, Osc2
 export Bifeedb1, Bifeedb2
 export Feedf1, Feedf2
 export Inhosc1, Inhosc2
+export Metabol1, Metabol2, Metabol3
 export BifeedbProblem, FeedfProblem, InhoscProblem, MetabolProblem
 
 """
@@ -88,8 +89,12 @@ function load_problem_unified(problem_name::String; num_trajectories::Int=1, kwa
         Inhosc1()
     elseif problem_name == "inhosc2" || problem_name == "gma_inhosc2" || problem_name == "ss_inhosc2"
         Inhosc2()
-    elseif startswith(problem_name, "metabol")
-        MetabolProblemModule.MetabolProblem(problem_name=problem_name)
+    elseif problem_name == "metabol1"
+        Metabol1()
+    elseif problem_name == "metabol2"
+        Metabol2()
+    elseif problem_name == "metabol3"
+        Metabol3()
     else
         error("Unknown problem: $problem_name. Check list_problems_unified() for available problems.")
     end
