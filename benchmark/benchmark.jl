@@ -26,8 +26,10 @@ ENV["SYMBOLIC_REGRESSION_PROGRESS"] = "false"
 
 include("benchmark_ode_discovery.jl")
 include("benchmark_reporting.jl")
+include(joinpath(@__DIR__, "..", "benchmark", "benchmarkProblems", "UnifiedBenchmarkSystems.jl"))
 using .SymbolicRegressionODE
 using .BenchmarkSystems
+using .UnifiedBenchmarkSystems
 using Test
 using Logging
 using Dates
@@ -59,7 +61,7 @@ const NUM_TRAJECTORIES = 3  # Use 3 different ICs per experiment for validation
 
 # Maximum number of problems to test (nothing = all problems)
 # Set to a smaller number for faster iteration/debugging
-const MAX_PROBLEMS_TO_TEST = 1  # Options: nothing, 5, 10, 20, etc.
+const MAX_PROBLEMS_TO_TEST = 3  # Testing first 3 unified problems: simpleLin1, simpleLin2, simpleFb1
 
 # Timeout protection (seconds, nothing = no timeout)
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
@@ -83,21 +85,34 @@ const TIMEOUT_PROBLEMS = [
 
 Get list of problems to test, excluding timeout-prone ones.
 Respects MAX_PROBLEMS_TO_TEST if set.
+
+Prioritizes unified architecture problems for testing.
 """
 function get_test_problems()
     all_problems_dict = BenchmarkSystems.list_problems()
     all_problems_full = sort(collect(keys(all_problems_dict)))
-    testable_problems = filter(p -> !(p in TIMEOUT_PROBLEMS), all_problems_full)
+    
+    # Get unified problems (prioritize these)
+    unified_problems_dict = UnifiedBenchmarkSystems.list_problems_unified()
+    unified_problems = sort(collect(keys(unified_problems_dict)))
+    
+    # Separate into unified and legacy problems
+    legacy_problems = filter(p -> !(p in unified_problems), all_problems_full)
+    testable_problems = filter(p -> !(p in TIMEOUT_PROBLEMS), legacy_problems)
+    
+    # Prioritize unified problems first, then legacy
+    ordered_problems = vcat(unified_problems, testable_problems)
     
     # Limit number of problems if MAX_PROBLEMS_TO_TEST is set
-    if MAX_PROBLEMS_TO_TEST !== nothing && MAX_PROBLEMS_TO_TEST < length(testable_problems)
-        testable_problems = testable_problems[1:MAX_PROBLEMS_TO_TEST]
+    if MAX_PROBLEMS_TO_TEST !== nothing && MAX_PROBLEMS_TO_TEST < length(ordered_problems)
+        ordered_problems = ordered_problems[1:MAX_PROBLEMS_TO_TEST]
     end
     
     return (
         all = all_problems_full,
-        testable = testable_problems,
-        excluded = TIMEOUT_PROBLEMS
+        testable = ordered_problems,
+        excluded = TIMEOUT_PROBLEMS,
+        unified = unified_problems
     )
 end
 

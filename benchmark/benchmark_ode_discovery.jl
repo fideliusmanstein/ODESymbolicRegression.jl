@@ -13,9 +13,11 @@ end
 
 include("../src/SymbolicRegressionODE.jl")
 include("benchmarkProblems/BenchmarkSystems.jl")
+include("benchmarkProblems/UnifiedBenchmarkSystems.jl")
 
 using .SymbolicRegressionODE
 using .BenchmarkSystems
+using .UnifiedBenchmarkSystems
 using SymbolicRegression
 using Statistics
 using Printf
@@ -400,8 +402,14 @@ function benchmark_single_problem(problem_name;
     end
     println("="^80)
     
-    # Load problem with multiple trajectories for robust evaluation
-    experiments = BenchmarkSystems.load_problem(problem_name, num_trajectories=num_trajectories)
+    # Try to load from unified architecture first, fall back to legacy
+    experiments = try
+        println("  Attempting to load from unified architecture...")
+        UnifiedBenchmarkSystems.load_problem_unified(problem_name, num_trajectories=num_trajectories)
+    catch e
+        println("  Not in unified architecture, using legacy loader...")
+        BenchmarkSystems.load_problem(problem_name, num_trajectories=num_trajectories)
+    end
     
     # Use default fast options if not provided
     if ode_options === nothing

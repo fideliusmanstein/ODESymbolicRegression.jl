@@ -16,6 +16,10 @@ function print_test_header(problems, test_options, num_trajectories, max_problem
     println("ODE Discovery Benchmark Test Suite - Multi-Trajectory")
     println("="^80)
     println("Total problems: $(length(problems.all))")
+    if haskey(problems, :unified)
+        println("Unified architecture: $(length(problems.unified)) problems")
+        println("Legacy architecture: $(length(problems.all) - length(problems.unified)) problems")
+    end
     println("Excluded (timeout): $(length(problems.excluded))")
     println("Testing: $(length(problems.testable)) problems")
     if max_problems !== nothing
