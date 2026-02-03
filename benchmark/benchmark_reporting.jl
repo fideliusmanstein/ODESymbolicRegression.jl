@@ -7,11 +7,11 @@ Reporting and output functions for ODE discovery benchmark tests.
 using Dates
 
 """
-    print_test_header(problems, test_options, num_trajectories, max_problems, timeout_seconds)
+    print_test_header(problems, test_options, num_trajectories, noise_std, max_problems, timeout_seconds)
 
 Print the benchmark test suite header with configuration information.
 """
-function print_test_header(problems, test_options, num_trajectories, max_problems, timeout_seconds)
+function print_test_header(problems, test_options, num_trajectories, noise_std, max_problems, timeout_seconds)
     println("="^80)
     println("ODE Discovery Benchmark Test Suite - Multi-Trajectory")
     println("="^80)
@@ -30,6 +30,7 @@ function print_test_header(problems, test_options, num_trajectories, max_problem
     println("  - Binary operators: $binary_ops_str")
     println("  - Unary operators: $unary_ops_str")
     println("  - Trajectories per experiment: $num_trajectories")
+    println("  - Noise level: $noise_std")
     timeout_msg = timeout_seconds === nothing ? "none (no timeout)" : "$(timeout_seconds)s"
     println("  - Timeout per system: $timeout_msg")
     println("="^80)
@@ -202,14 +203,15 @@ function print_final_summary(results_summary, results_file)
 end
 
 """
-    write_file_header(file, num_trajectories)
+    write_file_header(file, num_trajectories, noise_std)
 
 Write header to results file.
 """
-function write_file_header(file, num_trajectories)
+function write_file_header(file, num_trajectories, noise_std)
     println(file, "="^80)
     println(file, "ODE Discovery Benchmark Test Results")
     println(file, "Multi-Trajectory Evaluation ($(num_trajectories) ICs per experiment)")
+    println(file, "Noise level: $noise_std")
     println(file, "Started: $(now())")
     println(file, "="^80)
     println(file)

@@ -471,14 +471,14 @@ experiments = load_problem("simpleLin1")
 experiments = load_problem("bifeedb1", num_trajectories=3)
 ```
 """
-function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing)
+function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing, noise_std::Float64=0.0)
     # Find the problem configuration
     prefix, module_ref, exp_func, data_func, returns_3tuple, needs_inputs = find_problem_config(problem_name)
     
     # Special handling for simpleLin which supports num_trajectories natively
     experiments = if prefix == "simpleLin"
         getfield(module_ref, exp_func)(
-            noise_std = problem_name == "simpleLin1" ? 0.0 : 0.1,
+            noise_std = noise_std,
             num_trajectories = num_trajectories === nothing ? 1 : num_trajectories)
     else
         # Standard: call generate_*_experiments(problem=problem_name)

@@ -60,12 +60,8 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 
 # Multi-trajectory configuration for robust evaluation
 const NUM_TRAJECTORIES = 3  # Use 3 different ICs per experiment for validation
-
-# Maximum number of problems to test (nothing = all problems)
-# Set to a smaller number for faster iteration/debugging
+const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
 const MAX_PROBLEMS_TO_TEST = 1  # Options: nothing, 5, 10, 20, etc.
-
-# Timeout protection (seconds, nothing = no timeout)
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 
 # Problems that timeout with minimal config (too many variables/experiments)
@@ -131,19 +127,18 @@ function create_result_dict(problem_name, success, loss, time, n_states;
 end
 
 """
-    run_single_benchmark(problem_name, num_trajectories)
-
 Run discovery on a single benchmark problem with multiple trajectories.
 Returns a result dictionary with success status and metrics.
 """
-function run_single_benchmark(problem_name, num_trajectories)
-    println("  Loading problem with $num_trajectories trajectories per experiment...")
+function run_single_benchmark(problem_name, num_trajectories, noise_std)
+    println("  Loading problem with $num_trajectories trajectories per experiment, noise_std=$noise_std...")
     
     try
         result = benchmark_single_problem(
             problem_name,
             ode_options = TEST_OPTIONS,
-            num_trajectories = num_trajectories  # NEW: Multi-trajectory support
+            num_trajectories = num_trajectories,
+            noise_std = noise_std
         )
         return result
         
@@ -161,7 +156,7 @@ function run_single_benchmark(problem_name, num_trajectories)
 end
 
 """
-    run_with_timeout(problem_name, num_trajectories, timeout_seconds)
+    run_with_timeout(problem_name, num_trajectories, noise_std, timeout_seconds)
 
 Run benchmark test with timeout protection.
 If timeout_seconds is nothing, runs without timeout.
@@ -169,13 +164,13 @@ If timeout_seconds is nothing, runs without timeout.
 Returns:
 - (completed::Bool, result::Dict): Whether test finished and the results
 """
-function run_with_timeout(problem_name, num_trajectories, timeout_seconds)
+function run_with_timeout(problem_name, num_trajectories, noise_std, timeout_seconds)
     timeout_msg = timeout_seconds === nothing ? "no timeout" : "$(timeout_seconds)s"
-    println("Testing: $problem_name (timeout: $timeout_msg, trajectories: $num_trajectories)")
+    println("Testing: $problem_name (timeout: $timeout_msg, trajectories: $num_trajectories, noise: $noise_std)")
     
     # If no timeout, run directly
     if timeout_seconds === nothing
-        result = run_single_benchmark(problem_name, num_trajectories)
+        result = run_single_benchmark(problem_name, num_trajectories, noise_std)
         return (true, result)
     end
     
@@ -184,7 +179,7 @@ function run_with_timeout(problem_name, num_trajectories, timeout_seconds)
     
     # Launch async task
     task = @async begin
-        result = run_single_benchmark(problem_name, num_trajectories)
+        result = run_single_benchmark(problem_name, num_trajectories, noise_std)
         put!(result_channel, result)
     end
     
@@ -224,7 +219,7 @@ end
 problems = get_test_problems()
 
 # Print header
-print_test_header(problems, TEST_OPTIONS, NUM_TRAJECTORIES, MAX_PROBLEMS_TO_TEST, TIMEOUT_SECONDS)
+print_test_header(problems, TEST_OPTIONS, NUM_TRAJECTORIES, NOISE_STD, MAX_PROBLEMS_TO_TEST, TIMEOUT_SECONDS)
 
 # Setup results file
 results_dir = "benchmark_results"
@@ -234,7 +229,7 @@ results_summary = Dict{String, Dict}()
 
 # Write header to file
 open(results_file, "w") do f
-    write_file_header(f, NUM_TRAJECTORIES)
+    write_file_header(f, NUM_TRAJECTORIES, NOISE_STD)
 end
 
 # Run all tests
@@ -245,6 +240,7 @@ end
             completed, result = run_with_timeout(
                 problem_name,
                 NUM_TRAJECTORIES,
+                NOISE_STD,
                 TIMEOUT_SECONDS
             )
             

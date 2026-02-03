@@ -391,17 +391,21 @@ Benchmark ODE discovery on a single problem.
 """
 function benchmark_single_problem(problem_name; 
                                  ode_options=nothing,
-                                 num_trajectories=1)
+                                 num_trajectories=1,
+                                 noise_std=0.0)
     
     println("\n" * "="^80)
     println("Benchmarking: $problem_name")
     if num_trajectories > 1
         println("Multi-trajectory mode: $num_trajectories ICs per experiment")
     end
+    if noise_std > 0.0
+        println("Noise level: $noise_std")
+    end
     println("="^80)
     
     # Load problem with multiple trajectories for robust evaluation
-    experiments = BenchmarkSystems.load_problem(problem_name, num_trajectories=num_trajectories)
+    experiments = BenchmarkSystems.load_problem(problem_name, num_trajectories=num_trajectories, noise_std=noise_std)
     
     # Use default fast options if not provided
     if ode_options === nothing
