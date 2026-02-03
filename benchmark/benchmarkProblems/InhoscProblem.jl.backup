@@ -1,0 +1,160 @@
+"""
+Inhibitory oscillator problem (inhosc) using unified architecture.
+
+Based on: https://www.cse.chalmers.se/~dag/identification/Benchmarks/inhosc.html
+Inhibitory oscillator with two or four dependent variables.
+"""
+
+module InhoscProblemModule
+
+using DifferentialEquations
+import ..BaseProblemModule
+
+export InhoscProblem, evaluate_system, generate_data, generate_experiments
+
+"""
+    InhoscProblem
+
+Inhibitory oscillator benchmark problem.
+
+System equations (variant 1, 2 states):
+    X1' = In - 1.0/(X2+1.0)
+    X2' = 1.0/(X1+1.0) - Out
+
+Variant 2 (4 states):
+    X1' = In - 1.0/(X4+1.0)
+    X2' = 1.0/(X1+1.0) - 1.0/(X3+1.0)
+    X3' = 1.0/(X2+1.0) - 1.0/(X4+1.0)
+    X4' = 1.0/(X3+1.0) - Out
+"""
+struct InhoscProblem <: BaseProblemModule.BenchmarkProblem
+    num_states::Int
+    num_inputs::Int
+    experiments::Vector{Dict{Symbol, Any}}
+    variant::Int
+    
+    # Constructor for specific variant
+    function InhoscProblem(variant::Int)
+        num_states = variant == 1 ? 2 : 4
+        num_inputs = 2  # In and Out
+        experiments = generate_experiments(InhoscProblem, variant)
+        new(num_states, num_inputs, experiments, variant)
+    end
+    
+    # Constructor from problem name string
+    function InhoscProblem(problem_name::String)
+        variant = parse(Int, replace(problem_name, r"(inhosc|gma_inhosc|ss_inhosc)" => ""))
+        InhoscProblem(variant)
+    end
+end
+
+"""
+    evaluate_system(::Type{InhoscProblem}, X, inputs, t, variant)
+
+Evaluate the inhosc system equations.
+"""
+function evaluate_system(::Type{InhoscProblem}, X, inputs, t, variant)
+    # Get inputs
+    In = inputs[:In](t)
+    Out = inputs[:Out](t)
+    
+    if variant == 1
+        X1, X2 = X
+        
+        dX1 = In - 1.0 / (X2 + 1.0)
+        dX2 = 1.0 / (X1 + 1.0) - Out
+        
+        return [dX1, dX2]
+    else # variant == 2
+        X1, X2, X3, X4 = X
+        
+        dX1 = In - 1.0 / (X4 + 1.0)
+        dX2 = 1.0 / (X1 + 1.0) - 1.0 / (X3 + 1.0)
+        dX3 = 1.0 / (X2 + 1.0) - 1.0 / (X4 + 1.0)
+        dX4 = 1.0 / (X3 + 1.0) - Out
+        
+        return [dX1, dX2, dX3, dX4]
+    end
+end
+
+"""
+    generate_data(problem::InhoscProblem; kwargs...)
+
+Generate data for the inhosc problem.
+"""
+function generate_data(problem::InhoscProblem;
+                       In_const=1.0,
+                       Out_const=1.0,
+                       X0=nothing,
+                       tspan=(0.0, 10.0),
+                       n_points=51,
+                       noise_std=0.0,
+                       In_func=nothing,
+                       Out_func=nothing)
+    # Default initial conditions
+    if X0 === nothing
+        X0 = ones(problem.num_states)
+    end
+    
+    # Create input functions
+    if In_func === nothing
+        In_func = t -> In_const
+    end
+    if Out_func === nothing
+        Out_func = t -> Out_const
+    end
+    
+    inputs = Dict(:In => In_func, :Out => Out_func)
+    
+    # Define ODE function
+    function ode_func!(dX, X, p, t)
+        dX .= evaluate_system(InhoscProblem, X, inputs, t, problem.variant)
+    end
+    
+    prob = ODEProblem(ode_func!, X0, tspan)
+    
+    # Solve ODE
+    t_eval = range(tspan[1], tspan[2], length=n_points)
+    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval)
+    
+    # Extract solution
+    t = sol.t
+    X = hcat(sol.u...)'
+    
+    # Add noise if requested
+    if noise_std > 0.0
+        for i in 1:size(X, 1), j in 1:size(X, 2)
+            noise = noise_std * abs(X[i, j]) * randn()
+            X[i, j] += noise
+        end
+    end
+    
+    # Prepare input values
+    input_values = Dict(
+        :In => [In_func(ti) for ti in t],
+        :Out => [Out_func(ti) for ti in t]
+    )
+    
+    return t, X, input_values
+end
+
+"""
+    generate_experiments(::Type{InhoscProblem}, variant::Int)
+
+Generate experiment configurations for inhosc.
+"""
+function generate_experiments(::Type{InhoscProblem}, variant::Int)
+    num_states = variant == 1 ? 2 : 4
+    [
+        Dict(
+            :In_const => 1.0,
+            :Out_const => 1.0,
+            :X0 => ones(num_states),
+            :tspan => (0.0, 10.0),
+            :n_points => 51,
+            :noise_std => 0.0
+        )
+    ]
+end
+
+end # module

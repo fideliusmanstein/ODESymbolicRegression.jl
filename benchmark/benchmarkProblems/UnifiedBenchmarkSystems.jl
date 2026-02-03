@@ -15,16 +15,28 @@ include("TreeBuilder.jl")
 include("SimpleLinProblem.jl")
 include("SimpleFbProblem.jl")
 include("OscProblem.jl")
+include("BifeedbProblem.jl")
+include("FeedfProblem.jl")
+include("InhoscProblem.jl")
+include("MetabolProblem.jl")
 
 # Re-export for convenience
 using .BaseProblemModule
-using .SimpleLinProblemModule
-using .SimpleFbProblemModule
-using .OscProblemModule
+using .SimpleLinProblemModule: SimpleLin1, SimpleLin2
+using .SimpleFbProblemModule: SimpleFb1, SimpleFb2, SimpleFb3, SimpleFb4
+using .OscProblemModule: Osc1, Osc2
+using .BifeedbProblemModule: Bifeedb1, Bifeedb2
+using .FeedfProblemModule: Feedf1, Feedf2, FeedfProblem
+using .InhoscProblemModule: Inhosc1, Inhosc2, InhoscProblem
+using .MetabolProblemModule: MetabolProblem
 
 export load_problem_unified, list_problems_unified, get_problem_trees
 export SimpleLin1, SimpleLin2, SimpleFb1, SimpleFb2, SimpleFb3, SimpleFb4
 export Osc1, Osc2
+export Bifeedb1, Bifeedb2
+export Feedf1, Feedf2
+export Inhosc1, Inhosc2
+export BifeedbProblem, FeedfProblem, InhoscProblem, MetabolProblem
 
 """
     load_problem_unified(problem_name::String; num_trajectories::Int=1, kwargs...)
@@ -64,8 +76,22 @@ function load_problem_unified(problem_name::String; num_trajectories::Int=1, kwa
         Osc1()
     elseif problem_name == "osc2"
         Osc2()
+    elseif problem_name == "bifeedb1" || problem_name == "gma_bifeedb1" || problem_name == "ss_bifeedb1"
+        Bifeedb1()
+    elseif problem_name == "bifeedb2" || problem_name == "gma_bifeedb2" || problem_name == "ss_bifeedb2"
+        Bifeedb2()
+    elseif problem_name == "feedf1" || problem_name == "gma_feedf1" || problem_name == "ss_feedf1"
+        Feedf1()
+    elseif problem_name == "feedf2" || problem_name == "gma_feedf2" || problem_name == "ss_feedf2"
+        Feedf2()
+    elseif problem_name == "inhosc1" || problem_name == "gma_inhosc1" || problem_name == "ss_inhosc1"
+        Inhosc1()
+    elseif problem_name == "inhosc2" || problem_name == "gma_inhosc2" || problem_name == "ss_inhosc2"
+        Inhosc2()
+    elseif startswith(problem_name, "metabol")
+        MetabolProblemModule.MetabolProblem(problem_name=problem_name)
     else
-        error("Unknown problem: $problem_name. Implemented: simpleLin1/2, simpleFb1-4, osc1/2")
+        error("Unknown problem: $problem_name. Check list_problems_unified() for available problems.")
     end
     
     # Generate experiments using the unified API
@@ -126,6 +152,42 @@ function list_problems_unified()
         "osc2" => Dict(
             :states => 3,
             :inputs => 0,
+            :variants => 1,
+            :status => "✅ Implemented"
+        ),
+        "bifeedb1" => Dict(
+            :states => 4,
+            :inputs => 0,
+            :variants => 1,
+            :status => "✅ Implemented"
+        ),
+        "bifeedb2" => Dict(
+            :states => 5,
+            :inputs => 0,
+            :variants => 1,
+            :status => "✅ Implemented"
+        ),
+        "feedf1" => Dict(
+            :states => 4,
+            :inputs => 2,
+            :variants => 1,
+            :status => "✅ Implemented"
+        ),
+        "feedf2" => Dict(
+            :states => 4,
+            :inputs => 2,
+            :variants => 1,
+            :status => "✅ Implemented"
+        ),
+        "inhosc1" => Dict(
+            :states => 2,
+            :inputs => 2,
+            :variants => 1,
+            :status => "✅ Implemented"
+        ),
+        "inhosc2" => Dict(
+            :states => 4,
+            :inputs => 2,
             :variants => 1,
             :status => "✅ Implemented"
         ),

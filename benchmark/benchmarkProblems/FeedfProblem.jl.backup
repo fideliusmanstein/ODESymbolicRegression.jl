@@ -1,0 +1,160 @@
+"""
+Feed-forward problem (feedf) using unified architecture.
+
+Based on: https://www.cse.chalmers.se/~dag/identification/Benchmarks/feedf.html
+Two Michaelis-Menten reactions affecting production of a single variable.
+"""
+
+module FeedfProblemModule
+
+using DifferentialEquations
+import ..BaseProblemModule
+
+export FeedfProblem, evaluate_system, generate_data, generate_experiments
+
+"""
+    FeedfProblem
+
+Feed-forward pathway with Michaelis-Menten kinetics.
+
+System equations (4 states, 2 inputs):
+    X1' = In1 - 1.0*X1/(X1+0.5)
+    X2' = In2 - 1.0*X2/(X2+0.4)
+    X3' = 1.0*X1/(X1+0.5) + 1.0*X2/(X2+0.4) - 1.0*X3/(X3+0.3)
+    X4' = 1.0*X3/(X3+0.3) - 1.0*X4/(X4+0.3)
+"""
+struct FeedfProblem <: BaseProblemModule.BenchmarkProblem
+    num_states::Int
+    num_inputs::Int
+    experiments::Vector{Dict{Symbol, Any}}
+    variant::Int
+    
+    # Constructor for specific variant
+    function FeedfProblem(variant::Int)
+        num_states = 4
+        num_inputs = 2
+        experiments = generate_experiments(FeedfProblem, variant)
+        new(num_states, num_inputs, experiments, variant)
+    end
+    
+    # Constructor from problem name string
+    function FeedfProblem(problem_name::String)
+        variant = parse(Int, replace(problem_name, r"(feedf|gma_feedf|ss_feedf)" => ""))
+        FeedfProblem(variant)
+    end
+end
+
+"""
+    evaluate_system(::Type{FeedfProblem}, X, inputs, t, variant)
+
+Evaluate the feedf system equations.
+"""
+function evaluate_system(::Type{FeedfProblem}, X, inputs, t, variant)
+    X1, X2, X3, X4 = X
+    
+    # Get inputs
+    In1 = inputs[:In1](t)
+    In2 = inputs[:In2](t)
+    
+    # System equations
+    dX1 = In1 - 1.0 * X1 / (X1 + 0.5)
+    dX2 = In2 - 1.0 * X2 / (X2 + 0.4)
+    dX3 = 1.0 * X1 / (X1 + 0.5) + 1.0 * X2 / (X2 + 0.4) - 1.0 * X3 / (X3 + 0.3)
+    dX4 = 1.0 * X3 / (X3 + 0.3) - 1.0 * X4 / (X4 + 0.3)
+    
+    return [dX1, dX2, dX3, dX4]
+end
+
+"""
+    generate_data(problem::FeedfProblem; kwargs...)
+
+Generate data for the feedf problem.
+"""
+function generate_data(problem::FeedfProblem;
+                       In1_const=1.0,
+                       In2_const=1.0,
+                       X0=nothing,
+                       tspan=(0.0, 5.0),
+                       n_points=51,
+                       noise_std=0.0,
+                       In1_func=nothing,
+                       In2_func=nothing)
+    # Default initial conditions
+    if X0 === nothing
+        X0 = [0.5, 0.5, 0.5, 0.5]
+    end
+    
+    # Create input functions
+    if In1_func === nothing
+        In1_func = t -> In1_const
+    end
+    if In2_func === nothing
+        In2_func = t -> In2_const
+    end
+    
+    inputs = Dict(:In1 => In1_func, :In2 => In2_func)
+    
+    # Define ODE function
+    function ode_func!(dX, X, p, t)
+        dX .= evaluate_system(FeedfProblem, X, inputs, t, problem.variant)
+    end
+    
+    prob = ODEProblem(ode_func!, X0, tspan)
+    
+    # Solve ODE
+    t_eval = range(tspan[1], tspan[2], length=n_points)
+    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval)
+    
+    # Extract solution
+    t = sol.t
+    X = hcat(sol.u...)'
+    
+    # Add noise if requested
+    if noise_std > 0.0
+        for i in 1:size(X, 1), j in 1:size(X, 2)
+            noise = noise_std * abs(X[i, j]) * randn()
+            X[i, j] += noise
+        end
+    end
+    
+    # Prepare input values
+    input_values = Dict(
+        :In1 => [In1_func(ti) for ti in t],
+        :In2 => [In2_func(ti) for ti in t]
+    )
+    
+    return t, X, input_values
+end
+
+"""
+    generate_experiments(::Type{FeedfProblem}, variant::Int)
+
+Generate experiment configurations for feedf.
+"""
+function generate_experiments(::Type{FeedfProblem}, variant::Int)
+    if variant == 1
+        [
+            Dict(
+                :In1_const => 1.0,
+                :In2_const => 1.0,
+                :X0 => [0.5, 0.5, 0.5, 0.5],
+                :tspan => (0.0, 5.0),
+                :n_points => 51,
+                :noise_std => 0.0
+            )
+        ]
+    else # variant == 2
+        [
+            Dict(
+                :In1_const => 2.0,
+                :In2_const => 1.5,
+                :X0 => [0.5, 0.5, 0.5, 0.5],
+                :tspan => (0.0, 5.0),
+                :n_points => 51,
+                :noise_std => 0.0
+            )
+        ]
+    end
+end
+
+end # module
