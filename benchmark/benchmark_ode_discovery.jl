@@ -466,12 +466,12 @@ function benchmark_single_problem(problem_name;
                 # Remove "x_i' = " prefix if present
                 gt_eq_str = replace(gt_eq_str, r"^[xX]\d+'\s*=\s*" => "")
                 
+                # Replace middle dot (·) with asterisk (*) for valid Julia syntax
+                gt_eq_str = replace(gt_eq_str, "·" => "*")
+                
                 # Extract the Node from the Expression object
                 disc_expr = result.best_trees[i]
                 disc_tree = disc_expr.tree  # Get the actual Node from the Expression
-                
-                # Parse the ground truth equation once
-                gt_expr = Meta.parse(gt_eq_str)
                 
                 # Direct numerical comparison
                 n_samples = 100 * n_states
