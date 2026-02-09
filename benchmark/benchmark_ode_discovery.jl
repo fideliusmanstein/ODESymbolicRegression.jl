@@ -483,48 +483,96 @@ function benchmark_single_problem(problem_name;
                 
                 error_count = 0
                 
-                # Evaluate both equations on test points
-                for j in 1:n_samples
-                    x_vals = test_points[j, :]
-                    
-                    try
-                        # Evaluate ground truth by substituting variables X1, X2, etc.
-                        # Create variable assignments
-                        var_assignments = String[]
-                        for k in 1:n_states
-                            push!(var_assignments, "X$k = $(x_vals[k])")
-                        end
-                        
-                        # Build evaluation string
-                        eval_str = """
-                        begin
+                # Create a function from the ground truth equation for efficient evaluation
+                # This approach is more robust than string evaluation
+                square_fn(x) = x * x
+                gt_expr_parsed = Meta.parse(gt_eq_str)
+                
+                # Create function that takes array of variables
+                gt_func = nothing
+                try
+                    # Build function dynamically based on number of states
+                    if n_states == 1
+                        gt_func = @eval (X1) -> begin
                             square(x) = x * x
-                            $(join(var_assignments, "; "))
-                            $gt_eq_str
+                            $gt_expr_parsed
                         end
-                        """
-                        
-                        # Evaluate
-                        gt_val = @eval Main $(Meta.parse(eval_str))
-                        
-                        # Evaluate discovered tree
-                        disc_result = eval_tree_array(disc_tree, x_vals, sr_options.operators)
-                        disc_val = disc_result[1][1]  # Extract value from ([value], success)
-                        
-                        # Only include if both are finite and not too extreme
-                        if isfinite(gt_val) && isfinite(disc_val) && 
-                           abs(gt_val) < 1e10 && abs(disc_val) < 1e10
-                            push!(ground_truth_outputs, gt_val)
-                            push!(discovered_outputs, disc_val)
+                    elseif n_states == 2
+                        gt_func = @eval (X1, X2) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
                         end
-                    catch e
-                        # Count errors for debugging
-                        error_count += 1
-                        if error_count == 1
-                            # Print first error for debugging
-                            println("    First evaluation error: ", e)
+                    elseif n_states == 3
+                        gt_func = @eval (X1, X2, X3) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
                         end
-                        continue
+                    elseif n_states == 4
+                        gt_func = @eval (X1, X2, X3, X4) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 5
+                        gt_func = @eval (X1, X2, X3, X4, X5) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 6
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 7
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 8
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7, X8) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states <= 15
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, X13, X14, X15) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    else
+                        error("Too many states ($n_states) for ground truth evaluation")
+                    end
+                catch e
+                    println("    Error creating ground truth function: $e")
+                    error_count = n_samples  # Skip all samples for this equation
+                end
+                
+                # Evaluate both equations on test points
+                if gt_func !== nothing
+                    for j in 1:n_samples
+                        x_vals = test_points[j, :]
+                        
+                        try
+                            # Evaluate ground truth using the compiled function
+                            gt_val = gt_func(x_vals...)
+                            
+                            # Evaluate discovered tree
+                            disc_result = eval_tree_array(disc_tree, x_vals, sr_options.operators)
+                            disc_val = disc_result[1][1]  # Extract value from ([value], success)
+                            
+                            # Only include if both are finite and not too extreme
+                            if isfinite(gt_val) && isfinite(disc_val) && 
+                               abs(gt_val) < 1e10 && abs(disc_val) < 1e10
+                                push!(ground_truth_outputs, gt_val)
+                                push!(discovered_outputs, disc_val)
+                            end
+                        catch e
+                            # Count errors for debugging
+                            error_count += 1
+                            if error_count == 1
+                                # Print first error for debugging
+                                println("    First evaluation error: ", e)
+                            end
+                            continue
+                        end
                     end
                 end
                 
