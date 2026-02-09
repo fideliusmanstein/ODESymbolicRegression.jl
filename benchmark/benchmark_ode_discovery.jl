@@ -22,9 +22,6 @@ using Printf
 using Dates
 using SymbolicUtils
 using Symbolics
-using JSON
-using CSV
-using DataFrames
 
 """
     round_equation_constants(equation_str::String; digits=2)
@@ -469,12 +466,12 @@ function benchmark_single_problem(problem_name;
                 # Remove "x_i' = " prefix if present
                 gt_eq_str = replace(gt_eq_str, r"^[xX]\d+'\s*=\s*" => "")
                 
-                # Replace middle dot (·) with asterisk (*) for valid Julia syntax
-                gt_eq_str = replace(gt_eq_str, "·" => "*")
-                
                 # Extract the Node from the Expression object
                 disc_expr = result.best_trees[i]
                 disc_tree = disc_expr.tree  # Get the actual Node from the Expression
+                
+                # Parse the ground truth equation once
+                gt_expr = Meta.parse(gt_eq_str)
                 
                 # Direct numerical comparison
                 n_samples = 100 * n_states
@@ -486,117 +483,53 @@ function benchmark_single_problem(problem_name;
                 
                 error_count = 0
                 
-                # Create a function from the ground truth equation for efficient evaluation
-                # This approach is more robust than string evaluation
-                square_fn(x) = x * x
-                gt_expr_parsed = Meta.parse(gt_eq_str)
-                
-                # Create function that takes array of variables
-                gt_func = nothing
-                try
-                    # Build function dynamically based on number of states
-                    if n_states == 1
-                        gt_func = @eval (X1) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states == 2
-                        gt_func = @eval (X1, X2) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states == 3
-                        gt_func = @eval (X1, X2, X3) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states == 4
-                        gt_func = @eval (X1, X2, X3, X4) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states == 5
-                        gt_func = @eval (X1, X2, X3, X4, X5) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states == 6
-                        gt_func = @eval (X1, X2, X3, X4, X5, X6) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states == 7
-                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states == 8
-                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7, X8) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    elseif n_states <= 15
-                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, X13, X14, X15) -> begin
-                            square(x) = x * x
-                            $gt_expr_parsed
-                        end
-                    else
-                        error("Too many states ($n_states) for ground truth evaluation")
-                    end
-                catch e
-                    println("    Error creating ground truth function: $e")
-                    error_count = n_samples  # Skip all samples for this equation
-                end
-                
                 # Evaluate both equations on test points
-                if gt_func !== nothing
-                    for j in 1:n_samples
-                        x_vals = test_points[j, :]
-                        
-                        try
-                            # Evaluate ground truth using the compiled function
-                            gt_val = gt_func(x_vals...)
-                            
-                            # Evaluate discovered tree
-                            disc_result = eval_tree_array(disc_tree, x_vals, sr_options.operators)
-                            disc_val = disc_result[1][1]  # Extract value from ([value], success)
-                            
-                            # Only include if both are finite and not too extreme
-                            if isfinite(gt_val) && isfinite(disc_val) && 
-                               abs(gt_val) < 1e10 && abs(disc_val) < 1e10
-                                push!(ground_truth_outputs, gt_val)
-                                push!(discovered_outputs, disc_val)
-                            end
-                        catch e
-                            # Count errors for debugging
-                            error_count += 1
-                            if error_count == 1
-                                # Print first error for debugging
-                                println("    First evaluation error: ", e)
-                            end
-                            continue
+                for j in 1:n_samples
+                    x_vals = test_points[j, :]
+                    
+                    try
+                        # Evaluate ground truth by substituting variables X1, X2, etc.
+                        # Create variable assignments
+                        var_assignments = String[]
+                        for k in 1:n_states
+                            push!(var_assignments, "X$k = $(x_vals[k])")
                         end
+                        
+                        # Build evaluation string
+                        eval_str = """
+                        begin
+                            square(x) = x * x
+                            $(join(var_assignments, "; "))
+                            $gt_eq_str
+                        end
+                        """
+                        
+                        # Evaluate
+                        gt_val = @eval Main $(Meta.parse(eval_str))
+                        
+                        # Evaluate discovered tree
+                        disc_result = eval_tree_array(disc_tree, x_vals, sr_options.operators)
+                        disc_val = disc_result[1][1]  # Extract value from ([value], success)
+                        
+                        # Only include if both are finite and not too extreme
+                        if isfinite(gt_val) && isfinite(disc_val) && 
+                           abs(gt_val) < 1e10 && abs(disc_val) < 1e10
+                            push!(ground_truth_outputs, gt_val)
+                            push!(discovered_outputs, disc_val)
+                        end
+                    catch e
+                        # Count errors for debugging
+                        error_count += 1
+                        if error_count == 1
+                            # Print first error for debugging
+                            println("    First evaluation error: ", e)
+                        end
+                        continue
                     end
                 end
                 
                 # Compute error metrics
                 if length(ground_truth_outputs) >= 10
-                    # Double-check that there are no NaN values in the outputs
-                    if any(isnan.(ground_truth_outputs)) || any(isnan.(discovered_outputs))
-                        println("\nEquation $i: NaN values detected in outputs")
-                        push!(equation_scores, Dict(
-                            "equation_index" => i,
-                            "rmse" => NaN,
-                            "nrmse" => NaN,
-                            "mae" => NaN,
-                            "max_error" => NaN,
-                            "r2" => NaN,
-                            "valid_samples" => length(ground_truth_outputs),
-                            "error" => "NaN values in outputs"
-                        ))
-                        continue
-                    end
-                    
                     errors = discovered_outputs .- ground_truth_outputs
                     abs_errors = abs.(errors)
                     
@@ -625,10 +558,10 @@ function benchmark_single_problem(problem_name;
                     
                     println("\nEquation $i:")
                     println("  RMSE: ", @sprintf("%.6e", rmse))
-                    println("  NRMSE: ", isnan(nrmse) ? "N/A" : @sprintf("%.4f", nrmse))
+                    println("  NRMSE: ", @sprintf("%.4f", nrmse))
                     println("  MAE: ", @sprintf("%.6e", mae))
                     println("  Max Error: ", @sprintf("%.6e", max_error))
-                    println("  R²: ", isnan(r2) ? "N/A" : @sprintf("%.6f", r2))
+                    println("  R²: ", @sprintf("%.6f", r2))
                     println("  Valid samples: $(length(ground_truth_outputs))/$(n_samples)")
                 else
                     println("\nEquation $i: Insufficient valid samples ($(length(ground_truth_outputs))/$(n_samples))")
@@ -727,157 +660,6 @@ Benchmark ODE discovery on all (or filtered) benchmark problems.
 # Returns
 - Vector of result dictionaries (success based on integration_loss < 1.0)
 """
-function clean_nan_for_json(obj)
-    """Replace NaN values with nothing (null in JSON) for JSON serialization."""
-    if obj isa Dict
-        return Dict(k => clean_nan_for_json(v) for (k, v) in obj)
-    elseif obj isa Array
-        return [clean_nan_for_json(x) for x in obj]
-    elseif obj isa Float64 && isnan(obj)
-        return nothing
-    else
-        return obj
-    end
-end
-
-function save_benchmark_results(all_results, timestamp)
-    """
-    Save benchmark results to CSV (summary) and JSON (detailed).
-    
-    # Arguments
-    - `all_results`: Vector of result dictionaries
-    - `timestamp`: Timestamp string for filenames
-    
-    # Returns
-    - DataFrame with summary statistics
-    """
-    results_dir = "benchmark_results"
-    mkpath(results_dir)
-    
-    # 1. CSV Summary - one row per problem
-    summary_rows = []
-    for result in all_results
-        # Count equations with good match (R² > 0.9)
-        n_good_equations = 0
-        n_total_equations = 0
-        avg_r2 = NaN
-        
-        if haskey(result, "equation_scores") && !isempty(result["equation_scores"])
-            scores = result["equation_scores"]
-            n_total_equations = length(scores)
-            r2_values = [s["r2"] for s in scores if !isnan(s["r2"])]
-            n_good_equations = count(r2 -> r2 > 0.9, r2_values)
-            avg_r2 = isempty(r2_values) ? NaN : mean(r2_values)
-        end
-        
-        push!(summary_rows, (
-            problem_name = result["problem_name"],
-            success = result["success"],
-            n_states = get(result, "n_states", 0),
-            n_equations_correct = n_good_equations,
-            n_equations_total = n_total_equations,
-            avg_r2 = avg_r2,
-            integration_loss = result["integration_loss"],
-            initial_loss = get(result, "initial_loss", NaN),
-            discovery_time = result["discovery_time"],
-            has_error = result["error"] !== nothing,
-            error_type = result["error"] !== nothing ? split(string(result["error"]), ":")[1] : ""
-        ))
-    end
-    
-    df = DataFrame(summary_rows)
-    CSV.write(joinpath(results_dir, "summary_$timestamp.csv"), df)
-    
-    # 2. JSON Detailed - complete nested structure (clean NaN values first)
-    cleaned_results = clean_nan_for_json(all_results)
-    open(joinpath(results_dir, "detailed_$timestamp.json"), "w") do io
-        JSON.print(io, cleaned_results, 2)  # Pretty print with indent=2
-    end
-    
-    return df
-end
-
-"""
-    save_results_text(all_results, timestamp)
-
-Save human-readable text report of benchmark results.
-"""
-function save_results_text(all_results, timestamp)
-    results_dir = "benchmark_results"
-    mkpath(results_dir)
-    filename = joinpath(results_dir, "results_$(timestamp).txt")
-    
-    successful = filter(r -> r["success"], all_results)
-    failed = filter(r -> !r["success"], all_results)
-    
-    open(filename, "w") do io
-        println(io, "ODE Discovery Benchmark Results")
-        println(io, "="^80)
-        println(io, "Timestamp: ", timestamp)
-        println(io, "Total problems: ", length(all_results))
-        println(io, "Successful: ", length(successful))
-        println(io, "Failed: ", length(failed))
-        println(io, "\n" * "="^80)
-        
-        for result in all_results
-            println(io, "\nProblem: ", result["problem_name"])
-            println(io, "Success: ", result["success"])
-            println(io, "Time: ", @sprintf("%.2f", result["discovery_time"]), "s")
-            println(io, "Integration loss: ", @sprintf("%.6e", result["integration_loss"]))
-            
-            if result["error"] !== nothing
-                println(io, "Error: ", result["error"])
-            else
-                println(io, "States: ", result["n_states"])
-                
-                # Print ground truth equations
-                println(io, "\nGround Truth Equations:")
-                for (i, eq) in enumerate(get(result, "ground_truth_equations", []))
-                    println(io, "  ", eq)
-                end
-                
-                # Print discovered equations
-                println(io, "\nDiscovered Equations:")
-                for (i, eq) in enumerate(get(result, "discovered_equations", []))
-                    println(io, "  X", i, "' = ", eq)
-                end
-                
-                # Print equation similarity scores if available
-                if haskey(result, "equation_scores") && !isempty(result["equation_scores"])
-                    println(io, "\nEquation Similarity Scores:")
-                    for score in result["equation_scores"]
-                        i = score["equation_index"]
-                        println(io, "  Equation $i:")
-                        println(io, "    R² = ", @sprintf("%.6f", score["r2"]))
-                        println(io, "    RMSE = ", @sprintf("%.6e", score["rmse"]))
-                        println(io, "    NRMSE = ", @sprintf("%.4f", score["nrmse"]))
-                        println(io, "    Valid samples = ", score["valid_samples"])
-                    end
-                end
-            end
-            
-            println(io, "-"^80)
-        end
-    end
-    
-    return filename
-end
-
-"""
-    benchmark_all_problems(; ode_options=nothing, 
-                          problem_filter=nothing,
-                          save_results=true)
-
-Benchmark ODE discovery on all (or filtered) benchmark problems.
-
-# Arguments
-- `ode_options`: ODERegressionOptions (if nothing, uses default fast settings)
-- `problem_filter`: Function to filter problems (e.g., name -> startswith(name, "ss_"))
-- `save_results`: Save results to file
-
-# Returns
-- Vector of result dictionaries (success based on integration_loss < 1.0)
-"""
 function benchmark_all_problems(;
                                ode_options=nothing,
                                problem_filter=nothing,
@@ -954,17 +736,46 @@ function benchmark_all_problems(;
     # Save results if requested
     if save_results
         timestamp = Dates.format(now(), "yyyymmdd_HHMMSS")
+        filename = "results/benchmark_results/benchmark_results_$(timestamp).txt"
         
-        # Save structured data (CSV + JSON)
-        df = save_benchmark_results(all_results, timestamp)
+        open(filename, "w") do io
+            println(io, "ODE Discovery Benchmark Results")
+            println(io, "="^80)
+            println(io, "Timestamp: ", timestamp)
+            println(io, "Total problems: ", length(all_results))
+            println(io, "Successful: ", length(successful))
+            println(io, "Failed: ", length(failed))
+            println(io, "\n" * "="^80)
+            
+            for result in all_results
+                println(io, "\nProblem: ", result["problem_name"])
+                println(io, "Success: ", result["success"])
+                println(io, "Time: ", @sprintf("%.2f", result["discovery_time"]), "s")
+                println(io, "Integration loss: ", @sprintf("%.6e", result["integration_loss"]))
+                
+                if result["error"] !== nothing
+                    println(io, "Error: ", result["error"])
+                else
+                    println(io, "States: ", result["n_states"])
+                    
+                    # Print ground truth equations
+                    println(io, "\nGround Truth Equations:")
+                    for (i, eq) in enumerate(get(result, "ground_truth_equations", []))
+                        println(io, "  ", eq)
+                    end
+                    
+                    # Print discovered equations
+                    println(io, "\nDiscovered Equations:")
+                    for (i, eq) in enumerate(get(result, "discovered_equations", []))
+                        println(io, "  X", i, "' = ", eq)
+                    end
+                end
+                
+                println(io, "-"^80)
+            end
+        end
         
-        # Save human-readable text report
-        text_file = save_results_text(all_results, timestamp)
-        
-        println("\n📁 Results saved:")
-        println("  Summary CSV: benchmark_results/summary_$timestamp.csv")
-        println("  Detailed JSON: benchmark_results/detailed_$timestamp.json")
-        println("  Text report: $text_file")
+        println("\nResults saved to: ", filename)
     end
     
     return all_results
