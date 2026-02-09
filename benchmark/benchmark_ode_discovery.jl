@@ -578,6 +578,22 @@ function benchmark_single_problem(problem_name;
                 
                 # Compute error metrics
                 if length(ground_truth_outputs) >= 10
+                    # Double-check that there are no NaN values in the outputs
+                    if any(isnan.(ground_truth_outputs)) || any(isnan.(discovered_outputs))
+                        println("\nEquation $i: NaN values detected in outputs")
+                        push!(equation_scores, Dict(
+                            "equation_index" => i,
+                            "rmse" => NaN,
+                            "nrmse" => NaN,
+                            "mae" => NaN,
+                            "max_error" => NaN,
+                            "r2" => NaN,
+                            "valid_samples" => length(ground_truth_outputs),
+                            "error" => "NaN values in outputs"
+                        ))
+                        continue
+                    end
+                    
                     errors = discovered_outputs .- ground_truth_outputs
                     abs_errors = abs.(errors)
                     
@@ -606,10 +622,10 @@ function benchmark_single_problem(problem_name;
                     
                     println("\nEquation $i:")
                     println("  RMSE: ", @sprintf("%.6e", rmse))
-                    println("  NRMSE: ", @sprintf("%.4f", nrmse))
+                    println("  NRMSE: ", isnan(nrmse) ? "N/A" : @sprintf("%.4f", nrmse))
                     println("  MAE: ", @sprintf("%.6e", mae))
                     println("  Max Error: ", @sprintf("%.6e", max_error))
-                    println("  R²: ", @sprintf("%.6f", r2))
+                    println("  R²: ", isnan(r2) ? "N/A" : @sprintf("%.6f", r2))
                     println("  Valid samples: $(length(ground_truth_outputs))/$(n_samples)")
                 else
                     println("\nEquation $i: Insufficient valid samples ($(length(ground_truth_outputs))/$(n_samples))")
