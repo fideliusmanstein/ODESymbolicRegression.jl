@@ -26,6 +26,7 @@ ENV["SYMBOLIC_REGRESSION_PROGRESS"] = "false"
 
 include("benchmark_ode_discovery.jl")
 include("benchmark_reporting.jl")
+include("analyze_results.jl")
 using .BenchmarkSystems
 using .SymbolicRegressionODE
 using Dates
@@ -61,7 +62,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 # Multi-trajectory configuration for robust evaluation
 const NUM_TRAJECTORIES = 3  # Use 3 different ICs per experiment for validation
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const MAX_PROBLEMS_TO_TEST = 1  # Options: nothing, 5, 10, 20, etc.
+const MAX_PROBLEMS_TO_TEST = 1   # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 
 # Problems that timeout with minimal config (too many variables/experiments)
@@ -271,3 +272,107 @@ print_final_summary(results_summary, results_file)
 open(results_file, "a") do f
     write_summary(f, results_summary)
 end
+
+# =============================================================================
+# Generate Analysis Reports
+# =============================================================================
+
+println("\n" * "="^80)
+println("GENERATING ANALYSIS REPORTS")
+println("="^80)
+
+# Extract timestamp from results_file
+timestamp = match(r"results_(\d{8}_\d{6})\.txt", results_file).captures[1]
+
+# Convert results_summary to vector format for save_benchmark_results
+all_results = collect(values(results_summary))
+
+# Generate CSV and JSON exports
+println("\n📊 Generating CSV/JSON exports...")
+try
+    df = save_benchmark_results(all_results, timestamp)
+    println("  ✓ Summary CSV: benchmark_results/summary_$timestamp.csv")
+    println("  ✓ Detailed JSON: benchmark_results/detailed_$timestamp.json")
+catch e
+    println("  ✗ Error generating CSV/JSON: $e")
+end
+
+# Generate analysis report
+println("\n📈 Generating analysis report...")
+try
+    csv_file = joinpath(results_dir, "summary_$timestamp.csv")
+    json_file = joinpath(results_dir, "detailed_$timestamp.json")
+    analysis_file = joinpath(results_dir, "analysis_$timestamp.txt")
+    
+    # Redirect analysis output to file
+    open(analysis_file, "w") do io
+        redirect_stdout(io) do
+            println("="^80)
+            println("AUTOMATED ANALYSIS REPORT")
+            println("Timestamp: $timestamp")
+            println("="^80)
+            
+            # Run comprehensive analysis
+            if isfile(csv_file)
+                println("\n")
+                df = analyze_benchmark_summary(csv_file)
+                
+                # Add problem-level details for interesting cases
+                if isfile(json_file)
+                    println("\n\n")
+                    println("="^80)
+                    println("DETAILED PROBLEM ANALYSIS")
+                    println("="^80)
+                    
+                    # Analyze top 3 best and worst performers
+                    sorted_df = sort(df, :avg_r2, rev=true)
+                    
+                    # Best performers
+                    println("\n📊 TOP PERFORMERS (Best R² scores):")
+                    println("-"^80)
+                    top_n = min(3, nrow(sorted_df))
+                    for i in 1:top_n
+                        if !ismissing(sorted_df[i, :avg_r2]) && !isnan(sorted_df[i, :avg_r2])
+                            problem = sorted_df[i, :problem_name]
+                            println("\n")
+                            analyze_problem_details(json_file, problem)
+                        end
+                    end
+                    
+                    # Worst performers (failures or low R²)
+                    println("\n\n📊 CHALLENGING PROBLEMS:")
+                    println("-"^80)
+                    worst_n = min(3, nrow(sorted_df))
+                    for i in (nrow(sorted_df)-worst_n+1):nrow(sorted_df)
+                        if i > 0
+                            problem = sorted_df[i, :problem_name]
+                            println("\n")
+                            analyze_problem_details(json_file, problem)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    println("  ✓ Analysis report: $analysis_file")
+catch e
+    println("  ✗ Error generating analysis: $e")
+    println("  Stack trace:")
+    for (exc, bt) in Base.catch_stack()
+        showerror(stdout, exc, bt)
+        println()
+    end
+end
+
+println("\n" * "="^80)
+println("ALL ANALYSIS REPORTS GENERATED")
+println("="^80)
+println("\nFiles created:")
+println("  • Results: $results_file")
+println("  • Summary CSV: benchmark_results/summary_$timestamp.csv")
+println("  • Detailed JSON: benchmark_results/detailed_$timestamp.json")
+println("  • Analysis: benchmark_results/analysis_$timestamp.txt")
+println("\nTo view analysis:")
+println("  cat benchmark_results/analysis_$timestamp.txt")
+println("="^80)
