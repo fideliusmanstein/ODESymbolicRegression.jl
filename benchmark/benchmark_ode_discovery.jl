@@ -209,7 +209,8 @@ function evaluate_tree_on_data(tree, X_features, sr_options)
     
     for i in 1:n_samples
         x = X_features[:, i]
-        predictions[i] = eval_tree_array(tree, x, sr_options)[1]
+        result = eval_tree_array(tree, x, sr_options.operators)
+        predictions[i] = result[1][1]  # result is ([value], success)
     end
     
     return predictions
@@ -325,10 +326,12 @@ function evaluate_equation_similarity(ground_truth_tree, discovered_tree, sr_opt
         
         try
             # Evaluate ground truth
-            gt_val = eval_tree_array(ground_truth_tree, x, sr_options)[1]
+            gt_result = eval_tree_array(ground_truth_tree, x, sr_options.operators)
+            gt_val = gt_result[1][1]  # Extract value from ([value], success)
             
             # Evaluate discovered equation
-            disc_val = eval_tree_array(discovered_tree, x, sr_options)[1]
+            disc_result = eval_tree_array(discovered_tree, x, sr_options.operators)
+            disc_val = disc_result[1][1]  # Extract value from ([value], success)
             
             # Only include valid numeric results
             if isfinite(gt_val) && isfinite(disc_val)
@@ -466,12 +469,12 @@ function benchmark_single_problem(problem_name;
                 # Remove "x_i' = " prefix if present
                 gt_eq_str = replace(gt_eq_str, r"^[xX]\d+'\s*=\s*" => "")
                 
-                disc_tree = result.best_trees[i]
+                # Replace middle dot (·) with asterisk (*) for valid Julia syntax
+                gt_eq_str = replace(gt_eq_str, "·" => "*")
                 
-                # Create a function to evaluate the ground truth equation
-                arg_symbols = [Symbol("x$k") for k in 1:n_states]
-                func_body = Meta.parse("begin; square(x) = x * x; $gt_eq_str; end")
-                gt_func = @eval ($(arg_symbols...),) -> $func_body
+                # Extract the Node from the Expression object
+                disc_expr = result.best_trees[i]
+                disc_tree = disc_expr.tree  # Get the actual Node from the Expression
                 
                 # Direct numerical comparison
                 n_samples = 100 * n_states
@@ -483,36 +486,117 @@ function benchmark_single_problem(problem_name;
                 
                 error_count = 0
                 
+                # Create a function from the ground truth equation for efficient evaluation
+                # This approach is more robust than string evaluation
+                square_fn(x) = x * x
+                gt_expr_parsed = Meta.parse(gt_eq_str)
+                
+                # Create function that takes array of variables
+                gt_func = nothing
+                try
+                    # Build function dynamically based on number of states
+                    if n_states == 1
+                        gt_func = @eval (X1) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 2
+                        gt_func = @eval (X1, X2) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 3
+                        gt_func = @eval (X1, X2, X3) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 4
+                        gt_func = @eval (X1, X2, X3, X4) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 5
+                        gt_func = @eval (X1, X2, X3, X4, X5) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 6
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 7
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states == 8
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7, X8) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    elseif n_states <= 15
+                        gt_func = @eval (X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, X13, X14, X15) -> begin
+                            square(x) = x * x
+                            $gt_expr_parsed
+                        end
+                    else
+                        error("Too many states ($n_states) for ground truth evaluation")
+                    end
+                catch e
+                    println("    Error creating ground truth function: $e")
+                    error_count = n_samples  # Skip all samples for this equation
+                end
+                
                 # Evaluate both equations on test points
-                for j in 1:n_samples
-                    x_vals = test_points[j, :]
-                    
-                    try
-                        # Evaluate ground truth using the created function
-                        gt_val = gt_func(x_vals...)
+                if gt_func !== nothing
+                    for j in 1:n_samples
+                        x_vals = test_points[j, :]
                         
-                        # Evaluate discovered tree
-                        disc_val = eval_tree_array(disc_tree, x_vals, sr_options)[1]
-                        
-                        # Only include if both are finite and not too extreme
-                        if isfinite(gt_val) && isfinite(disc_val) && 
-                           abs(gt_val) < 1e10 && abs(disc_val) < 1e10
-                            push!(ground_truth_outputs, gt_val)
-                            push!(discovered_outputs, disc_val)
+                        try
+                            # Evaluate ground truth using the compiled function
+                            gt_val = gt_func(x_vals...)
+                            
+                            # Evaluate discovered tree
+                            disc_result = eval_tree_array(disc_tree, x_vals, sr_options.operators)
+                            disc_val = disc_result[1][1]  # Extract value from ([value], success)
+                            
+                            # Only include if both are finite and not too extreme
+                            if isfinite(gt_val) && isfinite(disc_val) && 
+                               abs(gt_val) < 1e10 && abs(disc_val) < 1e10
+                                push!(ground_truth_outputs, gt_val)
+                                push!(discovered_outputs, disc_val)
+                            end
+                        catch e
+                            # Count errors for debugging
+                            error_count += 1
+                            if error_count == 1
+                                # Print first error for debugging
+                                println("    First evaluation error: ", e)
+                            end
+                            continue
                         end
-                    catch e
-                        # Count errors for debugging
-                        error_count += 1
-                        if error_count == 1
-                            # Print first error for debugging
-                            println("    First evaluation error: ", e)
-                        end
-                        continue
                     end
                 end
                 
                 # Compute error metrics
                 if length(ground_truth_outputs) >= 10
+                    # Double-check that there are no NaN values in the outputs
+                    if any(isnan.(ground_truth_outputs)) || any(isnan.(discovered_outputs))
+                        println("\nEquation $i: NaN values detected in outputs")
+                        push!(equation_scores, Dict(
+                            "equation_index" => i,
+                            "rmse" => NaN,
+                            "nrmse" => NaN,
+                            "mae" => NaN,
+                            "max_error" => NaN,
+                            "r2" => NaN,
+                            "valid_samples" => length(ground_truth_outputs),
+                            "error" => "NaN values in outputs"
+                        ))
+                        continue
+                    end
+                    
                     errors = discovered_outputs .- ground_truth_outputs
                     abs_errors = abs.(errors)
                     
@@ -541,10 +625,10 @@ function benchmark_single_problem(problem_name;
                     
                     println("\nEquation $i:")
                     println("  RMSE: ", @sprintf("%.6e", rmse))
-                    println("  NRMSE: ", @sprintf("%.4f", nrmse))
+                    println("  NRMSE: ", isnan(nrmse) ? "N/A" : @sprintf("%.4f", nrmse))
                     println("  MAE: ", @sprintf("%.6e", mae))
                     println("  Max Error: ", @sprintf("%.6e", max_error))
-                    println("  R²: ", @sprintf("%.6f", r2))
+                    println("  R²: ", isnan(r2) ? "N/A" : @sprintf("%.6f", r2))
                     println("  Valid samples: $(length(ground_truth_outputs))/$(n_samples)")
                 else
                     println("\nEquation $i: Insufficient valid samples ($(length(ground_truth_outputs))/$(n_samples))")
