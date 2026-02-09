@@ -10,4 +10,4 @@ This script tests the new analysis features by running a minimal benchmark.
 ENV["MAX_PROBLEMS_TO_TEST"] = "1"
 
 # Run the benchmark
-include("benchmark.jl")
+include("../benchmark/benchmark.jl")

@@ -2,9 +2,10 @@
 
 # Test analysis functions on actual benchmark results
 
-# Note: Run with julia --project=.. to use parent project
+import Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
 
-include("analyze_results.jl")
+include("../benchmark/analyze_results.jl")
 
 println("Testing analysis functions...")
 println("=" ^ 80)
@@ -26,5 +27,5 @@ println("-" ^ 80)
 # For demo, compare the same file with itself
 compare_runs(csv_file, "benchmark_results/summary_20260209_151027.csv")
 
-println("\n" ^ 80)
+println("\n\n" * "="^80)
 println("✓ All analysis functions tested successfully!")

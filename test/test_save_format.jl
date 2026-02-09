@@ -3,9 +3,9 @@
 # Test script to verify new CSV/JSON save functionality
 
 using Pkg
-Pkg.activate(".")
+Pkg.activate(joinpath(@__DIR__, ".."))
 
-include("benchmark_ode_discovery.jl")
+include("../benchmark/benchmark_ode_discovery.jl")
 
 println("Testing new benchmark save formats...")
 println("=" ^ 60)
@@ -27,7 +27,7 @@ println("  - results_*.txt")
 
 # Check if files were created
 using Dates
-files = readdir("../benchmark_results", join=false)
+files = readdir("benchmark_results", join=false)
 timestamp = Dates.format(now(), "yyyymmdd")
 
 csv_files = filter(f -> startswith(f, "summary_") && contains(f, timestamp), files)
@@ -45,7 +45,7 @@ if length(csv_files) > 0
     
     # Try to load and display first few lines
     using CSV, DataFrames
-    df = CSV.read("../benchmark_results/$latest_csv", DataFrame)
+    df = CSV.read("benchmark_results/$latest_csv", DataFrame)
     println("\nCSV Preview:")
     println(df)
 end
@@ -56,7 +56,7 @@ if length(json_files) > 0
     
     # Try to load and display structure
     using JSON
-    data = JSON.parsefile("../benchmark_results/$latest_json")
+    data = JSON.parsefile("benchmark_results/$latest_json")
     println("\nJSON contains $(length(data)) result(s)")
     if length(data) > 0
         first_result = data[1]

@@ -6,7 +6,7 @@ import Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
 # Load analysis tools
-include("analyze_results.jl")
+include("../benchmark/analyze_results.jl")
 
 println("\n✓ Analysis tools loaded successfully!")
 println("\nYou can now run:")
