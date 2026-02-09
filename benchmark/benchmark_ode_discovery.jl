@@ -206,7 +206,8 @@ function evaluate_tree_on_data(tree, X_features, sr_options)
     
     for i in 1:n_samples
         x = X_features[:, i]
-        predictions[i] = eval_tree_array(tree, x, sr_options)[1]
+        result = eval_tree_array(tree, x, sr_options.operators)
+        predictions[i] = result[1][1]  # result is ([value], success)
     end
     
     return predictions
@@ -322,10 +323,12 @@ function evaluate_equation_similarity(ground_truth_tree, discovered_tree, sr_opt
         
         try
             # Evaluate ground truth
-            gt_val = eval_tree_array(ground_truth_tree, x, sr_options)[1]
+            gt_result = eval_tree_array(ground_truth_tree, x, sr_options.operators)
+            gt_val = gt_result[1][1]  # Extract value from ([value], success)
             
             # Evaluate discovered equation
-            disc_val = eval_tree_array(discovered_tree, x, sr_options)[1]
+            disc_result = eval_tree_array(discovered_tree, x, sr_options.operators)
+            disc_val = disc_result[1][1]  # Extract value from ([value], success)
             
             # Only include valid numeric results
             if isfinite(gt_val) && isfinite(disc_val)
@@ -463,12 +466,12 @@ function benchmark_single_problem(problem_name;
                 # Remove "x_i' = " prefix if present
                 gt_eq_str = replace(gt_eq_str, r"^[xX]\d+'\s*=\s*" => "")
                 
-                disc_tree = result.best_trees[i]
+                # Extract the Node from the Expression object
+                disc_expr = result.best_trees[i]
+                disc_tree = disc_expr.tree  # Get the actual Node from the Expression
                 
-                # Create a function to evaluate the ground truth equation
-                arg_symbols = [Symbol("x$k") for k in 1:n_states]
-                func_body = Meta.parse("begin; square(x) = x * x; $gt_eq_str; end")
-                gt_func = @eval ($(arg_symbols...),) -> $func_body
+                # Parse the ground truth equation once
+                gt_expr = Meta.parse(gt_eq_str)
                 
                 # Direct numerical comparison
                 n_samples = 100 * n_states
@@ -485,11 +488,28 @@ function benchmark_single_problem(problem_name;
                     x_vals = test_points[j, :]
                     
                     try
-                        # Evaluate ground truth using the created function
-                        gt_val = gt_func(x_vals...)
+                        # Evaluate ground truth by substituting variables X1, X2, etc.
+                        # Create variable assignments
+                        var_assignments = String[]
+                        for k in 1:n_states
+                            push!(var_assignments, "X$k = $(x_vals[k])")
+                        end
+                        
+                        # Build evaluation string
+                        eval_str = """
+                        begin
+                            square(x) = x * x
+                            $(join(var_assignments, "; "))
+                            $gt_eq_str
+                        end
+                        """
+                        
+                        # Evaluate
+                        gt_val = @eval Main $(Meta.parse(eval_str))
                         
                         # Evaluate discovered tree
-                        disc_val = eval_tree_array(disc_tree, x_vals, sr_options)[1]
+                        disc_result = eval_tree_array(disc_tree, x_vals, sr_options.operators)
+                        disc_val = disc_result[1][1]  # Extract value from ([value], success)
                         
                         # Only include if both are finite and not too extreme
                         if isfinite(gt_val) && isfinite(disc_val) && 

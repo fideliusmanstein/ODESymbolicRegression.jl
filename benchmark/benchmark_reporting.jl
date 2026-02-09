@@ -133,7 +133,52 @@ function print_failure_diagnostics(problem_name, result)
         end
     end
 end
+"""    print_equation_similarity(result)
 
+Print equation similarity scores to console.
+"""
+function print_equation_similarity(result)
+    if haskey(result, "equation_scores") && !isempty(result["equation_scores"])
+        println("\n" * "="^80)
+        println("Equation Similarity Analysis")
+        println("="^80)
+        
+        for score in result["equation_scores"]
+            i = score["equation_index"]
+            println("\nEquation $i:")
+            
+            if haskey(score, "error")
+                println("  ❌ Error: $(score["error"])")
+            elseif score["valid_samples"] < 10
+                println("  ⚠ Insufficient valid samples: $(score["valid_samples"])")
+            else
+                # Check if values are NaN
+                if isnan(score["rmse"])
+                    println("  ⚠ Unable to compute metrics (NaN values)")
+                else
+                    println("  RMSE: ", @sprintf("%.6e", score["rmse"]))
+                    println("  NRMSE: ", isnan(score["nrmse"]) ? "N/A" : @sprintf("%.4f", score["nrmse"]))
+                    println("  MAE: ", @sprintf("%.6e", score["mae"]))
+                    println("  Max Error: ", @sprintf("%.6e", score["max_error"]))
+                    println("  R²: ", isnan(score["r2"]) ? "N/A" : @sprintf("%.6f", score["r2"]))
+                    println("  Valid samples: $(score["valid_samples"])")
+                    
+                    # Add qualitative assessment
+                    if !isnan(score["r2"]) && score["r2"] > 0.99
+                        println("  ✓ Excellent match (R² > 0.99)")
+                    elseif !isnan(score["r2"]) && score["r2"] > 0.95
+                        println("  ✓ Good match (R² > 0.95)")
+                    elseif !isnan(score["r2"]) && score["r2"] > 0.8
+                        println("  ~ Fair match (R² > 0.8)")
+                    else
+                        println("  ✗ Poor match")
+                    end
+                end
+            end
+        end
+        println("="^80)
+    end
+end
 """
     write_summary(file, results)
 

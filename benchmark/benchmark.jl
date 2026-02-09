@@ -11,6 +11,8 @@ Features:
 
 Run with: julia --project=.. benchmark.jl
 Or from REPL: include("benchmark/benchmark.jl")
+
+For parallel execution, use parallel_benchmark.jl instead.
 """
 
 # =============================================================================
@@ -127,6 +129,8 @@ function create_result_dict(problem_name, success, loss, time, n_states;
 end
 
 """
+    run_single_benchmark(problem_name, num_trajectories, noise_std)
+
 Run discovery on a single benchmark problem with multiple trajectories.
 Returns a result dictionary with success status and metrics.
 """
@@ -256,6 +260,9 @@ end
             if !result["success"]
                 print_failure_diagnostics(problem_name, result)
             end
+            
+            # Print equation similarity analysis (for both success and failure)
+            print_equation_similarity(result)
             
             # Test assertion (skip if timeout)
             if completed
