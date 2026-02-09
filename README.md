@@ -2,6 +2,14 @@
 
 Discover ordinary differential equations from time-series data using symbolic regression.
 
+## 🔧 Recent Updates
+
+**2026-02-09**: Fixed critical NaN bug in equation similarity analysis
+- Issue: Ground truth equations used `·` (middle dot) instead of `*`, causing parse errors
+- Status: ✅ Fixed and tested
+- See [NAN_FIX_SUMMARY.md](NAN_FIX_SUMMARY.md) for details
+- See [BENCHMARK_USAGE.md](BENCHMARK_USAGE.md) for benchmark usage
+
 ## Overview
 
 This package implements a two-stage approach for ODE discovery:
