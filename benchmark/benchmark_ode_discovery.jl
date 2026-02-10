@@ -454,10 +454,6 @@ function benchmark_single_problem(problem_name;
         
         # Compute equation similarity scores
         equation_scores = []
-        println("\n" * "="^80)
-        println("Equation Similarity Analysis")
-        println("="^80)
-        println("Testing each equation with $(100 * n_states) random input samples...")
         
         for i in 1:min(length(result.best_trees), length(ground_truth_equations_raw))
             try
@@ -555,19 +551,7 @@ function benchmark_single_problem(problem_name;
                     )
                     
                     push!(equation_scores, score)
-                    
-                    println("\nEquation $i:")
-                    println("  RMSE: ", @sprintf("%.6e", rmse))
-                    println("  NRMSE: ", @sprintf("%.4f", nrmse))
-                    println("  MAE: ", @sprintf("%.6e", mae))
-                    println("  Max Error: ", @sprintf("%.6e", max_error))
-                    println("  R²: ", @sprintf("%.6f", r2))
-                    println("  Valid samples: $(length(ground_truth_outputs))/$(n_samples)")
                 else
-                    println("\nEquation $i: Insufficient valid samples ($(length(ground_truth_outputs))/$(n_samples))")
-                    if error_count > 0
-                        println("  Errors encountered: $error_count")
-                    end
                     push!(equation_scores, Dict(
                         "equation_index" => i,
                         "rmse" => NaN,
@@ -579,12 +563,6 @@ function benchmark_single_problem(problem_name;
                     ))
                 end
             catch e
-                println("\nEquation $i: Error computing similarity - ", e)
-                println("  Stack trace: ")
-                for (exc, bt) in Base.catch_stack()
-                    showerror(stdout, exc, bt)
-                    println()
-                end
                 push!(equation_scores, Dict(
                     "equation_index" => i,
                     "rmse" => NaN,
@@ -597,12 +575,10 @@ function benchmark_single_problem(problem_name;
                 ))
             end
         end
-        println("="^80)
         
         println("\n" * "-"^80)
         println("Overall Result: ", success ? "✓ SUCCESS" : "✗ FAILED")
         println("Discovery time: ", @sprintf("%.2f", discovery_time), " seconds")
-        println("Integration loss: ", @sprintf("%.6e", result.integration_loss))
         println("Number of states: ", n_states)
         println("\nGround Truth Equations:")
         for (i, eq) in enumerate(ground_truth_equations)

@@ -7,6 +7,57 @@ Reporting and output functions for ODE discovery benchmark tests.
 using Dates
 
 """
+    write_equation_scores(io, equation_scores; indent="  ", show_match_assessment=true)
+
+Write equation similarity scores to an IO stream (file or stdout).
+Unified function to avoid duplication between file and console output.
+"""
+function write_equation_scores(io::IO, equation_scores::Vector; indent="  ", show_match_assessment=true)
+    if isempty(equation_scores)
+        return
+    end
+    
+    for score in equation_scores
+        i = score["equation_index"]
+        println(io, indent, "Equation $i:")
+        
+        if haskey(score, "error")
+            prefix = show_match_assessment ? "❌ " : ""
+            println(io, indent, "  ", prefix, "Error: $(score["error"])")
+        elseif score["valid_samples"] < 10
+            prefix = show_match_assessment ? "⚠ " : ""
+            println(io, indent, "  ", prefix, "Insufficient valid samples: $(score["valid_samples"])")
+        else
+            # Check if values are NaN
+            if isnan(score["rmse"])
+                prefix = show_match_assessment ? "⚠ " : ""
+                println(io, indent, "  ", prefix, "Unable to compute metrics (NaN values)")
+            else
+                println(io, indent, "  RMSE: ", @sprintf("%.6e", score["rmse"]))
+                println(io, indent, "  NRMSE: ", isnan(score["nrmse"]) ? "N/A" : @sprintf("%.4f", score["nrmse"]))
+                println(io, indent, "  MAE: ", @sprintf("%.6e", score["mae"]))
+                println(io, indent, "  Max Error: ", @sprintf("%.6e", score["max_error"]))
+                println(io, indent, "  R²: ", isnan(score["r2"]) ? "N/A" : @sprintf("%.6f", score["r2"]))
+                println(io, indent, "  Valid samples: $(score["valid_samples"])")
+                
+                # Add qualitative match assessment if requested
+                if show_match_assessment
+                    if !isnan(score["r2"]) && score["r2"] > 0.99
+                        println(io, indent, "  ✓ Excellent match (R² > 0.99)")
+                    elseif !isnan(score["r2"]) && score["r2"] > 0.95
+                        println(io, indent, "  ✓ Good match (R² > 0.95)")
+                    elseif !isnan(score["r2"]) && score["r2"] > 0.8
+                        println(io, indent, "  ~ Fair match (R² > 0.8)")
+                    else
+                        println(io, indent, "  ✗ Poor match")
+                    end
+                end
+            end
+        end
+    end
+end
+
+"""
     print_test_header(problems, test_options, num_trajectories, noise_std, max_problems, timeout_seconds)
 
 Print the benchmark test suite header with configuration information.
@@ -95,20 +146,7 @@ function write_result_to_file(file, result)
     if haskey(result, "equation_scores") && !isempty(result["equation_scores"])
         println(file, "  Equation Similarity Scores:")
         println(file, "    (Evaluated on random test inputs)")
-        for score in result["equation_scores"]
-            i = score["equation_index"]
-            println(file, "    Equation $i:")
-            if haskey(score, "error")
-                println(file, "      Error: $(score["error"])")
-            else
-                println(file, "      RMSE: ", @sprintf("%.6e", score["rmse"]))
-                println(file, "      NRMSE: ", @sprintf("%.4f", score["nrmse"]))
-                println(file, "      MAE: ", @sprintf("%.6e", score["mae"]))
-                println(file, "      Max Error: ", @sprintf("%.6e", score["max_error"]))
-                println(file, "      R²: ", @sprintf("%.6f", score["r2"]))
-                println(file, "      Valid samples: $(score["valid_samples"])")
-            end
-        end
+        write_equation_scores(file, result["equation_scores"]; indent="    ", show_match_assessment=true)
     end
     
     println(file)
@@ -142,47 +180,16 @@ function print_equation_similarity(result)
         println("\n" * "="^80)
         println("Equation Similarity Analysis")
         println("="^80)
-        
-        for score in result["equation_scores"]
-            i = score["equation_index"]
-            println("\nEquation $i:")
-            
-            if haskey(score, "error")
-                println("  ❌ Error: $(score["error"])")
-            elseif score["valid_samples"] < 10
-                println("  ⚠ Insufficient valid samples: $(score["valid_samples"])")
-            else
-                # Check if values are NaN
-                if isnan(score["rmse"])
-                    println("  ⚠ Unable to compute metrics (NaN values)")
-                else
-                    println("  RMSE: ", @sprintf("%.6e", score["rmse"]))
-                    println("  NRMSE: ", isnan(score["nrmse"]) ? "N/A" : @sprintf("%.4f", score["nrmse"]))
-                    println("  MAE: ", @sprintf("%.6e", score["mae"]))
-                    println("  Max Error: ", @sprintf("%.6e", score["max_error"]))
-                    println("  R²: ", isnan(score["r2"]) ? "N/A" : @sprintf("%.6f", score["r2"]))
-                    println("  Valid samples: $(score["valid_samples"])")
-                    
-                    # Add qualitative assessment
-                    if !isnan(score["r2"]) && score["r2"] > 0.99
-                        println("  ✓ Excellent match (R² > 0.99)")
-                    elseif !isnan(score["r2"]) && score["r2"] > 0.95
-                        println("  ✓ Good match (R² > 0.95)")
-                    elseif !isnan(score["r2"]) && score["r2"] > 0.8
-                        println("  ~ Fair match (R² > 0.8)")
-                    else
-                        println("  ✗ Poor match")
-                    end
-                end
-            end
-        end
+        println()
+        write_equation_scores(stdout, result["equation_scores"]; indent="", show_match_assessment=true)
         println("="^80)
     end
 end
+
 """
     write_summary(file, results)
 
-Write summary statistics to the output file.
+Write summary statistics to the results file.
 """
 function write_summary(file, results)
     successes = count(r -> r["success"], values(results))
