@@ -184,9 +184,9 @@ function get_equation_strings(problem::String)
     end
     
     return [
-        "X1' = 0.9·(0.9/(X3+0.9)) - 1.0·X1",
-        "X2' = 1.0·X1 - 0.6·X2",
-        "X3' = 0.6·X2 - 0.8·X3"
+        "X1' = 0.9 * (0.9 / (X3 + 0.9)) - 1.0 * X1",
+        "X2' = 1.0 * X1 - 0.6 * X2",
+        "X3' = 0.6 * X2 - 0.8 * X3"
     ]
 end
 

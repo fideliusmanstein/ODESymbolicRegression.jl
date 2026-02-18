@@ -26,17 +26,67 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using Distributed
 
-# Add worker processes (use all available cores minus 1 for main process)
+# Load benchmark infrastructure on main process first to handle precompilation safely
+println("Initializing on main process (handling precompilation)...")
+include("benchmark_ode_discovery.jl")
+include("benchmark_reporting.jl")
+
+# =============================================================================
+# Constants and Configuration (same as benchmark.jl)
+# =============================================================================
+
+# Memory safety configuration
+const ESTIMATED_MEM_PER_WORKER_GB = 2.0  # Adjust based on your systems' complexity
+const MEM_SAFETY_MARGIN = 0.8           # Use only 80% of total RAM
+
+"""
+    get_worker_count()
+
+Determine the number of worker processes to launch based on:
+1. Command line argument
+2. SLURM environment variables
+3. Memory availability (Safety check)
+4. System CPU threads (fallback)
+"""
+function get_worker_count()
+    # Step 1: Determine CPU-based limit
+    cpu_limit = 1
+    
+    if !isempty(ARGS) && tryparse(Int, ARGS[1]) !== nothing
+        cpu_limit = parse(Int, ARGS[1])
+        println("User requested $cpu_limit workers via command line.")
+    elseif haskey(ENV, "SLURM_CPUS_ON_NODE")
+        cpu_limit = max(1, parse(Int, ENV["SLURM_CPUS_ON_NODE"]) - 1)
+        println("SLURM allocation allows for $cpu_limit workers.")
+    else
+        cpu_limit = max(1, div(Sys.CPU_THREADS, 2) - 1)
+        println("System default allows for $cpu_limit workers.")
+    end
+
+    # Step 2: Determine Memory-based limit
+    total_mem_gb = Sys.total_memory() / 1024^3
+    safe_mem_gb = total_mem_gb * MEM_SAFETY_MARGIN
+    mem_limit = floor(Int, safe_mem_gb / ESTIMATED_MEM_PER_WORKER_GB)
+    
+    println("Memory Safety: Found $(round(total_mem_gb, digits=1))GB total RAM.")
+    println("  At $(ESTIMATED_MEM_PER_WORKER_GB)GB per worker, memory limit is $mem_limit workers.")
+
+    # Step 3: Use the smaller of the two
+    final_count = min(cpu_limit, mem_limit)
+    
+    if final_count < cpu_limit
+        println("⚠ WARNING: Reducing worker count from $cpu_limit to $final_count due to memory constraints.")
+    end
+
+    return max(1, final_count)
+end
+
+# Add worker processes
 if nprocs() == 1
-    n_workers = max(1, Sys.CPU_THREADS - 1)
-    println("Setting up parallel execution...")
+    n_workers = get_worker_count()
     println("Adding $n_workers worker processes...")
     addprocs(n_workers)
 end
-
-# Load benchmark infrastructure on main process first
-include("benchmark_ode_discovery.jl")
-include("benchmark_reporting.jl")
 
 # Load required packages on all workers
 println("Loading packages on $(nworkers()) workers (this may take 30-60 seconds)...")
@@ -86,8 +136,8 @@ square(x) = x * x
 
 # Test configuration - defined on all workers for consistency
 @everywhere const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative = 3,  # Use 3 for testing; 100 for production
-    niterations_integration = 3,  # Use 3 for testing; 20 for production
+    niterations_derivative = 120,  # Use 3 for testing; 100 for production
+    niterations_integration = 50,  # Use 3 for testing; 20 for production
     complexity_derivative = 15,
     complexity_integration = 15,
     binary_operators = (+, *, -, /),
@@ -97,9 +147,9 @@ square(x) = x * x
 )
 
 # Multi-trajectory configuration for robust evaluation
-const NUM_TRAJECTORIES = 10  # Use 3 different ICs per experiment for validation
+const NUM_TRAJECTORIES = 5  # Use 3 different ICs per experiment for validation
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const MAX_PROBLEMS_TO_TEST = 5  # Options: nothing, 5, 10, 20, etc.
+const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 
 # Problems that timeout with minimal config (too many variables/experiments)
@@ -308,6 +358,17 @@ end
 
 # Print final summary and write to file
 print_final_summary(results_summary, results_file)
+
+# Save machine-readable formats
+json_file = replace(results_file, ".txt" => ".json")
+csv_file = replace(results_file, ".txt" => ".csv")
+
+println("Saving results to:")
+println("  - JSON: $json_file")
+println("  - CSV:  $csv_file")
+
+save_results_json(json_file, results_summary)
+save_results_csv(csv_file, results_summary)
 
 open(results_file, "a") do f
     write_summary(f, results_summary)

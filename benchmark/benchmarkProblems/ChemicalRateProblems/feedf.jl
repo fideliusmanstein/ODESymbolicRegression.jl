@@ -20,11 +20,12 @@ Return the ground truth equation strings for the feedf problem.
 """
 function get_equation_strings(problem)
     # All feedf problems use the same 4-state system
+    # Expanded with constants and input mapping (In1->X5, In2->X6)
     return [
-        "X1' = In1 - k1·X1/(X1+k2)",
-        "X2' = In2 - k3·X2/(X2+k4)",
-        "X3' = k5·X1/(X1+k6) + k7·X2/(X2+k8) - k9·X3/(X3+k10)",
-        "X4' = k11·X3/(X3+k12) - k13·X4/(X4+k14)"
+        "X1' = X5 - 1.0*X1/(X1+0.5)",
+        "X2' = X6 - 1.0*X2/(X2+0.4)",
+        "X3' = 1.0*X1/(X1+0.5) + 1.0*X2/(X2+0.4) - 1.0*X3/(X3+0.3)",
+        "X4' = 1.0*X3/(X3+0.3) - 1.0*X4/(X4+0.3)"
     ]
 end
 export get_equation_strings

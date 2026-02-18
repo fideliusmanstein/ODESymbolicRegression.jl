@@ -178,7 +178,7 @@ function format_ssystem_equations(α, β, g, h, n_vars, input_indices=nothing)
                 end
             end
         end
-        prod_str = isempty(prod_terms) ? string(α[i]) : join(prod_terms, "·")
+        prod_str = isempty(prod_terms) ? string(α[i]) : join(prod_terms, "*")
         
         # Degradation term: βi ∏j Xj^hij
         deg_terms = String[]
@@ -198,7 +198,7 @@ function format_ssystem_equations(α, β, g, h, n_vars, input_indices=nothing)
                 end
             end
         end
-        deg_str = isempty(deg_terms) ? string(β[i]) : join(deg_terms, "·")
+        deg_str = isempty(deg_terms) ? string(β[i]) : join(deg_terms, "*")
         
         # Combine into equation
         push!(equations, "X$(i)' = $prod_str - $deg_str")
