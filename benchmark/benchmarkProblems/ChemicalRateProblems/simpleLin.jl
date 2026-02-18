@@ -257,10 +257,12 @@ function get_equation_strings(problem::String)
         error("Problem $problem is not a simpleLin problem")
     end
     
+    # State mapping: X3-5 -> X1-3
+    # Input mapping: X1-2 -> X4-5 (sorted alphabetically :X1, :X2)
     return [
-        "X3' = -1.0·X3 + 1.0·X1·X4",
-        "X4' = 1.0·X3 - 1.0·X1·X4 + 1.0·X5 - 1.0·X2·X4",
-        "X5' = -1.0·X5 + 1.0·X2·X4"
+        "X1' = -1.0*X1 + 1.0*X4*X2",
+        "X2' = 1.0*X1 - 1.0*X4*X2 + 1.0*X3 - 1.0*X5*X2",
+        "X3' = -1.0*X3 + 1.0*X5*X2"
     ]
 end
 

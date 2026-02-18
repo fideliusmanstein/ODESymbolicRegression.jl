@@ -434,6 +434,8 @@ function benchmark_single_problem(problem_name;
         # Extract basic info from first experiment
         exp = experiments[1]
         n_states = size(exp[:X], 2)
+        n_inputs = length(get(exp, :inputs, Dict()))
+        n_features = n_states + n_inputs
         
         # Success based on integration loss (no ground truth comparison)
         success = result.integration_loss < 1.0  # Threshold for reasonable discovery
@@ -461,18 +463,17 @@ function benchmark_single_problem(problem_name;
                 gt_eq_str = ground_truth_equations_raw[i]
                 # Remove "x_i' = " prefix if present
                 gt_eq_str = replace(gt_eq_str, r"^[xX]\d+'\s*=\s*" => "")
+                # Replace middle dot with asterisk for evaluation
+                gt_eq_str = replace(gt_eq_str, "·" => "*")
                 
                 # Extract the Node from the Expression object
                 disc_expr = result.best_trees[i]
                 disc_tree = disc_expr.tree  # Get the actual Node from the Expression
                 
-                # Parse the ground truth equation once
-                gt_expr = Meta.parse(gt_eq_str)
-                
                 # Direct numerical comparison
                 n_samples = 100 * n_states
                 # Use a range [0.1, 5.0] to avoid extreme values
-                test_points = 0.1 .+ 4.9 .* rand(n_samples, n_states)
+                test_points = 0.1 .+ 4.9 .* rand(n_samples, n_features)
                 
                 ground_truth_outputs = Float64[]
                 discovered_outputs = Float64[]
@@ -485,10 +486,11 @@ function benchmark_single_problem(problem_name;
                     
                     try
                         # Evaluate ground truth by substituting variables X1, X2, etc.
-                        # Create variable assignments
+                        # Create variable assignments for both Xi and xi
                         var_assignments = String[]
-                        for k in 1:n_states
+                        for k in 1:n_features
                             push!(var_assignments, "X$k = $(x_vals[k])")
+                            push!(var_assignments, "x$k = $(x_vals[k])")
                         end
                         
                         # Build evaluation string
@@ -500,7 +502,7 @@ function benchmark_single_problem(problem_name;
                         end
                         """
                         
-                        # Evaluate
+                        # Evaluate in Main
                         gt_val = @eval Main $(Meta.parse(eval_str))
                         
                         # Evaluate discovered tree
@@ -518,7 +520,7 @@ function benchmark_single_problem(problem_name;
                         error_count += 1
                         if error_count == 1
                             # Print first error for debugging
-                            println("    First evaluation error: ", e)
+                            println("    First evaluation error (Eq $i, sample $j): ", e)
                         end
                         continue
                     end
