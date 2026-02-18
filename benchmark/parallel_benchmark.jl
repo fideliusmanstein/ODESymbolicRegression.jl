@@ -309,6 +309,17 @@ end
 # Print final summary and write to file
 print_final_summary(results_summary, results_file)
 
+# Save machine-readable formats
+json_file = replace(results_file, ".txt" => ".json")
+csv_file = replace(results_file, ".txt" => ".csv")
+
+println("Saving results to:")
+println("  - JSON: $json_file")
+println("  - CSV:  $csv_file")
+
+save_results_json(json_file, results_summary)
+save_results_csv(csv_file, results_summary)
+
 open(results_file, "a") do f
     write_summary(f, results_summary)
 end

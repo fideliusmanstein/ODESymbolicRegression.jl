@@ -5,6 +5,10 @@ Reporting and output functions for ODE discovery benchmark tests.
 """
 
 using Dates
+using JSON
+using DataFrames
+using CSV
+using Printf
 
 """
     write_equation_scores(io, equation_scores; indent="  ", show_match_assessment=true)
@@ -267,4 +271,62 @@ function write_file_header(file, num_trajectories, noise_std)
     println(file, "Started: $(now())")
     println(file, "="^80)
     println(file)
+end
+
+"""
+    save_results_json(file_path, results)
+
+Save benchmark results summary to a JSON file for machine readability.
+"""
+function save_results_json(file_path, results)
+    open(file_path, "w") do f
+        JSON.print(f, results, 4)
+    end
+end
+
+"""
+    save_results_csv(file_path, results)
+
+Save benchmark results summary to a CSV file for analysis (e.g., pandas).
+Flattens the summary to one row per problem with key metrics.
+"""
+function save_results_csv(file_path, results)
+    rows = []
+    
+    for (name, result) in sort(collect(results), by=x->x[1])
+        # Base metrics
+        row = Dict(
+            "problem" => name,
+            "success" => result["success"],
+            "discovery_time" => result["discovery_time"],
+            "integration_loss" => result["integration_loss"],
+            "n_states" => result["n_states"],
+            "timeout" => get(result, "timeout", false)
+        )
+        
+        # Add average equation similarity if available
+        if haskey(result, "equation_scores") && !isempty(result["equation_scores"])
+            scores = result["equation_scores"]
+            valid_scores = filter(s -> !isnan(s["rmse"]), scores)
+            
+            if !isempty(valid_scores)
+                row["avg_rmse"] = sum(s["rmse"] for s in valid_scores) / length(valid_scores)
+                row["avg_r2"] = sum(s["r2"] for s in valid_scores) / length(valid_scores)
+                row["min_r2"] = minimum(s["r2"] for s in valid_scores)
+            else
+                row["avg_rmse"] = NaN
+                row["avg_r2"] = NaN
+                row["min_r2"] = NaN
+            end
+        else
+            row["avg_rmse"] = NaN
+            row["avg_r2"] = NaN
+            row["min_r2"] = NaN
+        end
+        
+        push!(rows, row)
+    end
+    
+    df = DataFrame(rows)
+    CSV.write(file_path, df)
 end
