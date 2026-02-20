@@ -31,3 +31,6 @@ benchmark_results/
 *.tmp
 *.log
 todo.md
+
+# temporarily, while not really part of the project
+Master_Thesis/  

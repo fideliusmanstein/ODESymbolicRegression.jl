@@ -50,20 +50,20 @@ square(x) = x * x
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative = 3,  # Use 3 for testing; 100 for production
-    niterations_integration = 3,  # Use 3 for testing; 20 for production
+    niterations_derivative = 120,  # Use 3 for testing; 100 for production
+    niterations_integration = 50,  # Use 3 for testing; 20 for production
     complexity_derivative = 15,
     complexity_integration = 15,
     binary_operators = (+, *, -, /),
     unary_operators = (square,),
-    parallelism = :serial,  # Avoid blocking issues
+    parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
 )
 
 # Multi-trajectory configuration for robust evaluation
-const NUM_TRAJECTORIES = 3  # Use 3 different ICs per experiment for validation
+const NUM_TRAJECTORIES = 10  # Use 3 different ICs per experiment for validation
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const MAX_PROBLEMS_TO_TEST = 1  # Options: nothing, 5, 10, 20, etc.
+const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 
 # Problems that timeout with minimal config (too many variables/experiments)
@@ -232,8 +232,8 @@ results_file = joinpath(results_dir, "results_$(Dates.format(now(), "yyyymmdd_HH
 results_summary = Dict{String, Dict}()
 
 # Write header to file
-open(results_file, "w") do f
-    write_file_header(f, NUM_TRAJECTORIES, NOISE_STD)
+    open(results_file, "w") do f
+    write_file_header(f, TEST_OPTIONS, NUM_TRAJECTORIES, NOISE_STD, MAX_PROBLEMS_TO_TEST, TIMEOUT_SECONDS, TIMEOUT_PROBLEMS)
 end
 
 # Run all tests

@@ -5,6 +5,7 @@ Reporting and output functions for ODE discovery benchmark tests.
 """
 
 using Dates
+using LinearAlgebra
 using JSON
 using DataFrames
 using CSV
@@ -273,12 +274,44 @@ end
 
 Write header to results file.
 """
-function write_file_header(file, num_trajectories, noise_std)
+function write_file_header(file, test_options, num_trajectories, noise_std, max_problems, timeout_seconds, timeout_problems)
     println(file, "="^80)
     println(file, "ODE Discovery Benchmark Test Results")
     println(file, "Multi-Trajectory Evaluation ($(num_trajectories) ICs per experiment)")
     println(file, "Noise level: $noise_std")
     println(file, "Started: $(now())")
+    println(file)
+    println(file, "Runtime Environment:")
+    println(file, "  - System CPU threads (logical): $(Sys.CPU_THREADS)")
+    println(file, "  - Julia threads (Threads.nthreads()): $(Base.Threads.nthreads())")
+    blas_threads = try
+        BLAS.get_num_threads()
+    catch
+        "unknown"
+    end
+    println(file, "  - BLAS threads: $blas_threads")
+    omp = get(ENV, "OMP_NUM_THREADS", "not set")
+    println(file, "  - OMP_NUM_THREADS: $omp")
+    println(file)
+    println(file, "Configuration:")
+    println(file, "  - niterations_derivative: $(test_options.niterations_derivative)")
+    println(file, "  - niterations_integration: $(test_options.niterations_integration)")
+    println(file, "  - complexity_derivative: $(test_options.complexity_derivative)")
+    println(file, "  - complexity_integration: $(test_options.complexity_integration)")
+    binary_ops_str = join(string.(test_options.binary_operators), ", ")
+    unary_ops_str = isempty(test_options.unary_operators) ? "none" : join(string.(test_options.unary_operators), ", ")
+    println(file, "  - binary_operators: $binary_ops_str")
+    println(file, "  - unary_operators: $unary_ops_str")
+    println(file, "  - parallelism: $(test_options.parallelism)")
+    println(file, "  - verbose: $(test_options.verbose)")
+    timeout_msg = timeout_seconds === nothing ? "none (no timeout)" : "$(timeout_seconds)s"
+    println(file, "  - timeout_seconds: $timeout_msg")
+    max_msg = max_problems === nothing ? "none (all problems)" : string(max_problems)
+    println(file, "  - max_problems_to_test: $max_msg")
+    println(file, "  - timeout_problems: ")
+    for p in timeout_problems
+        println(file, "      - $p")
+    end
     println(file, "="^80)
     println(file)
 end
