@@ -289,3 +289,10 @@ save_results_csv(csv_file, results_summary)
 open(results_file, "a") do f
     write_summary(f, results_summary)
 end
+
+# Append a global end timestamp so the results file clearly marks when benchmarking finished
+open(results_file, "a") do f
+    println(f)
+    println(f, "End: $(Dates.now())")
+    flush(f)
+end
