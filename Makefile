@@ -4,53 +4,40 @@ BLAS_THREADS ?= 1
 OMP_NUM_THREADS ?= 1
 PROJECT ?= .
 SCRIPT ?= benchmark/benchmark.jl
-PARALLEL_SCRIPT ?= benchmark/parallel_benchmark.jl
 RESULTS_DIR ?= benchmark_results
-PIDFILE := $(RESULTS_DIR)/benchmark.pid
+JOBFILE := $(RESULTS_DIR)/benchmark.jobid
 
-.PHONY: help benchmark benchmark_parallel benchmark_foreground stop status logs
+.PHONY: help benchmark stop status logs queue
 
 help:
 	@echo "Makefile targets:"
-	@echo "  make benchmark               # start background benchmark run (nohup)"
-	@echo "  make benchmark_parallel     # start parallel_benchmark.jl similarly"
-	@echo "  make benchmark_foreground   # run interactively in foreground"
-	@echo "  make stop                    # stop background run (kill pidfile)"
-	@echo "  make status                  # show PID and process info"
-	@echo "  make logs                    # tail latest log file"
+	@echo "  make benchmark            # submit benchmark via SLURM (uses run.sh)"
+	@echo "  make stop                 # cancel submitted SLURM job (uses $(JOBFILE))"
+	@echo "  make status               # show SLURM job status for submitted job"
+	@echo "  make queue                # show your active SLURM jobs (squeue -u)"
+	@echo "  make logs                 # tail SLURM/benchmark output for job"
 
 
+# Submit benchmark job to SLURM using `sbatch`. The job id is written to $(JOBFILE).
 benchmark:
 	@mkdir -p $(RESULTS_DIR)
-	@TIMESTAMP=$$(date +"%Y%m%d_%H%M%S"); \
-	LOG="$(RESULTS_DIR)/results_$$TIMESTAMP.txt"; \
-	echo "Starting benchmark (background) -> $$LOG"; \
-	export JULIA_NUM_THREADS=$(THREADS) && export OMP_NUM_THREADS=$(OMP_NUM_THREADS) && export BLAS_NUM_THREADS=$(BLAS_THREADS) && \
-	nohup $(JULIA) --project=$(PROJECT) -t $(THREADS) $(SCRIPT) > "$$LOG" 2>&1 & echo $$! > $(PIDFILE); \
-	echo "PID saved to $(PIDFILE)"
+	@echo "Submitting benchmark job to SLURM..."
+	@# Use --parsable to return only the jobid; override cpus-per-task with THREADS
+	@JOBID=$$(sbatch --parsable --cpus-per-task=$(THREADS) --output=$(RESULTS_DIR)/results_%x_%j.txt run.sh); \
+	if [ -n "$$JOBID" ]; then echo $$JOBID > $(JOBFILE); echo "Submitted job $$JOBID (saved to $(JOBFILE))"; else echo "Failed to submit job"; exit 1; fi
 
-
-benchmark_parallel:
-	@mkdir -p $(RESULTS_DIR)
-	@TIMESTAMP=$$(date +"%Y%m%d_%H%M%S"); \
-	LOG="$(RESULTS_DIR)/results_parallel_$$TIMESTAMP.txt"; \
-	echo "Starting parallel benchmark (background) -> $$LOG"; \
-	export JULIA_NUM_THREADS=$(THREADS) && export OMP_NUM_THREADS=$(OMP_NUM_THREADS) && export BLAS_NUM_THREADS=$(BLAS_THREADS) && \
-	nohup $(JULIA) --project=$(PROJECT) -t $(THREADS) $(PARALLEL_SCRIPT) > "$$LOG" 2>&1 & echo $$! > $(PIDFILE); \
-	echo "PID saved to $(PIDFILE)"
-
-
-benchmark_foreground:
-	@export JULIA_NUM_THREADS=$(THREADS); export OMP_NUM_THREADS=$(OMP_NUM_THREADS); export BLAS_NUM_THREADS=$(BLAS_THREADS); \
-	echo "Running in foreground (Ctrl-C to stop)"; \
-	$(JULIA) --project=$(PROJECT) -t $(THREADS) $(SCRIPT)
 
 stop:
-	@if [ -f $(PIDFILE) ]; then PID=$$(cat $(PIDFILE)); echo "Stopping PID $$PID"; kill $$PID || true; rm -f $(PIDFILE); else echo "No PID file found at $(PIDFILE)"; fi
+	@if [ -f $(JOBFILE) ]; then JOBID=$$(cat $(JOBFILE)); echo "Cancelling job $$JOBID"; scancel $$JOBID || true; rm -f $(JOBFILE); else echo "No job file found at $(JOBFILE)"; fi
 
 status:
-	@if [ -f $(PIDFILE) ]; then PID=$$(cat $(PIDFILE)); echo "PID: $$PID"; ps -p $$PID -o pid,etime,cmd; else echo "No PID running (no $(PIDFILE))"; fi
+	@if [ -f $(JOBFILE) ]; then JOBID=$$(cat $(JOBFILE)); echo "Job: $$JOBID"; squeue -j $$JOBID -o "%.18i %.9P %.8j %.8u %.2t %.10M %.6D %R"; else echo "No job file found at $(JOBFILE)"; fi
 
 logs:
-	@LATEST=$$(ls -1t $(RESULTS_DIR)/results_*.txt 2>/dev/null | head -n1 || true); \
-	if [ -n "$$LATEST" ]; then echo "Tailing $$LATEST"; tail -n 200 "$$LATEST"; else echo "No log files found in $(RESULTS_DIR)"; fi
+	@JOBID=$$(cat $(JOBFILE) 2>/dev/null || true); \
+	if [ -n "$$JOBID" ]; then LATEST=$$(ls -1t $(RESULTS_DIR)/results_*_$$JOBID.txt 2>/dev/null | head -n1 || true); fi; \
+	if [ -n "$$LATEST" ]; then echo "Tailing $$LATEST"; tail -n 200 "$$LATEST"; else echo "No log file found for job $$JOBID in $(RESULTS_DIR)"; fi
+
+queue:
+	@echo "Active SLURM jobs for user $$USER:"; \
+	squeue -u $$USER -o "%.18i %.9P %.8j %.8u %.2t %.10M %.6D %R"
