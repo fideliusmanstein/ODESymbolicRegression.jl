@@ -277,7 +277,7 @@ Write header to results file.
 function write_file_header(file, test_options, num_trajectories, noise_std, max_problems, timeout_seconds, timeout_problems)
     println(file, "="^80)
     println(file, "ODE Discovery Benchmark Test Results")
-    println(file, "Multi-Trajectory Evaluation ($(num_trajectories) ICs per experiment)")
+    println(file, "Num trajectories: $num_trajectories")
     println(file, "Noise level: $noise_std")
     println(file, "Started: $(now())")
     println(file)
