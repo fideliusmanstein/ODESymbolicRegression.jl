@@ -4,6 +4,7 @@
 #SBATCH --error=benchmark_results/errors_%x_%j.txt
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
 #SBATCH --time=2-00:00:00
 #SBATCH --mem=32G
 
@@ -12,8 +13,14 @@ set -euo pipefail
 # Optional: load a Julia module if your cluster requires it
 # module load julia/1.9.2
 
-# Move to repository root (assumes run.sh is in repo root)
-cd "$(dirname "$0")"
+# Move to the submission directory (where you ran `sbatch`),
+# not the script's temporary location on the compute node.
+# SLURM sets `SLURM_SUBMIT_DIR` to the directory where sbatch was invoked.
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+
+# Diagnostic: print cwd and a short listing to help debug failures
+echo "CWD: $(pwd)";
+echo "Contents:"; ls -lah . | sed -n '1,120p'
 
 mkdir -p benchmark_results
 
