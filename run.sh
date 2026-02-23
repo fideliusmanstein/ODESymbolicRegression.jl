@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=2-00:00:00
-#SBATCH --mem=64G
+#SBATCH --mem=32G
 
 set -euo pipefail
 
