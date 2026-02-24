@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=ode-benchmark
-#SBATCH --output=benchmark_results/results_%x_%j.txt
-#SBATCH --error=benchmark_results/errors_%x_%j.txt
+#SBATCH --output=benchmark_output/results_%x_%j.txt
+#SBATCH --error=benchmark_output/errors_%x_%j.txt
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=32
 #SBATCH --time=2-00:00:00
 #SBATCH --mem=32G
 
@@ -23,6 +23,7 @@ echo "CWD: $(pwd)";
 echo "Contents:"; ls -lah . | sed -n '1,120p'
 
 mkdir -p benchmark_results
+mkdir -p benchmark_output
 
 # Determine thread counts: prefer SLURM allocation if provided
 : ${SLURM_CPUS_PER_TASK:=16}
