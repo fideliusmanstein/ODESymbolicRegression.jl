@@ -465,63 +465,69 @@ function benchmark_single_problem(problem_name;
                 gt_eq_str = replace(gt_eq_str, r"^[xX]\d+'\s*=\s*" => "")
                 # Replace middle dot with asterisk for evaluation
                 gt_eq_str = replace(gt_eq_str, "·" => "*")
-                
+
                 # Extract the Node from the Expression object
                 disc_expr = result.best_trees[i]
                 disc_tree = disc_expr.tree  # Get the actual Node from the Expression
-                
-                # Direct numerical comparison
-                n_samples = 100 * n_states
-                # Use a range [0.1, 5.0] to avoid extreme values
-                test_points = 0.1 .+ 4.9 .* rand(n_samples, n_features)
-                
+
+                # --- Build a proper GT lambda to avoid @eval Main global pollution ---
+                # Variable names: x1..x_{n_features}
+                arg_list = join(["x$k" for k in 1:n_features], ", ")
+                # Also support uppercase X1..X_n by aliasing at the start of the body
+                alias_block = join(["X$k = x$k" for k in 1:n_features], "; ")
+                # square helper (in case GT string still contains it)
+                sq_helper = "local _sq(x) = x * x; "
+                gt_eq_safe = replace(gt_eq_str, r"square\(([^)]+)\)" => s"_sq(\1)")
+                gt_lambda_str = "($arg_list) -> begin; $sq_helper $alias_block; $gt_eq_safe; end"
+                gt_func = try
+                    eval(Meta.parse(gt_lambda_str))
+                catch parse_err
+                    @warn "Could not parse GT equation $i for $problem_name: $parse_err"
+                    nothing
+                end
+                if gt_func === nothing
+                    push!(equation_scores, Dict(
+                        "equation_index" => i,
+                        "rmse" => NaN, "nrmse" => NaN, "mae" => NaN,
+                        "max_error" => NaN, "r2" => NaN, "valid_samples" => 0,
+                        "error" => "GT parse failed"
+                    ))
+                    continue
+                end
+
+                # --- Sample test points from actual observed state ranges ---
+                # Use the range [min * 0.5, max * 1.5] from experiment data, floored at 1e-3
+                # This ensures test points are representative of the real system dynamics.
+                X_all = vcat([exp[:X] for exp in experiments]...)  # (total_pts, n_states)
+                x_mins = vec(minimum(X_all, dims=1))
+                x_maxs = vec(maximum(X_all, dims=1))
+                # For input features (if any), use [0.1, 5.0]
+                feat_lo = vcat(max.(x_mins .* 0.5, 1e-3), fill(0.1, n_inputs))
+                feat_hi = vcat(x_maxs .* 1.5,              fill(5.0, n_inputs))
+
+                n_samples = 500
+                test_points = feat_lo' .+ (feat_hi .- feat_lo)' .* rand(n_samples, n_features)
+
                 ground_truth_outputs = Float64[]
                 discovered_outputs = Float64[]
-                
-                error_count = 0
-                
+
                 # Evaluate both equations on test points
                 for j in 1:n_samples
                     x_vals = test_points[j, :]
-                    
+
                     try
-                        # Evaluate ground truth by substituting variables X1, X2, etc.
-                        # Create variable assignments for both Xi and xi
-                        var_assignments = String[]
-                        for k in 1:n_features
-                            push!(var_assignments, "X$k = $(x_vals[k])")
-                            push!(var_assignments, "x$k = $(x_vals[k])")
+                        # Evaluate ground truth via the pre-compiled lambda (no global pollution)
+                        gt_val = gt_func(x_vals...)
+
+                        # Evaluate discovered tree (reshape to column vector for DynamicExpressions)
+                        disc_result = eval_tree_array(disc_tree, reshape(x_vals, n_features, 1), sr_options.operators)
+                        disc_val = disc_result[1][1]  # ([value_array], success) → scalar
+
+                        if isfinite(gt_val) && isfinite(disc_val)
+                            push!(ground_truth_outputs, Float64(gt_val))
+                            push!(discovered_outputs, Float64(disc_val))
                         end
-                        
-                        # Build evaluation string
-                        eval_str = """
-                        begin
-                            square(x) = x * x
-                            $(join(var_assignments, "; "))
-                            $gt_eq_str
-                        end
-                        """
-                        
-                        # Evaluate in Main
-                        gt_val = @eval Main $(Meta.parse(eval_str))
-                        
-                        # Evaluate discovered tree
-                        disc_result = eval_tree_array(disc_tree, x_vals, sr_options.operators)
-                        disc_val = disc_result[1][1]  # Extract value from ([value], success)
-                        
-                        # Only include if both are finite and not too extreme
-                        if isfinite(gt_val) && isfinite(disc_val) && 
-                           abs(gt_val) < 1e10 && abs(disc_val) < 1e10
-                            push!(ground_truth_outputs, gt_val)
-                            push!(discovered_outputs, disc_val)
-                        end
-                    catch e
-                        # Count errors for debugging
-                        error_count += 1
-                        if error_count == 1
-                            # Print first error for debugging
-                            println("    First evaluation error (Eq $i, sample $j): ", e)
-                        end
+                    catch
                         continue
                     end
                 end
