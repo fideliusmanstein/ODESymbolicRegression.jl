@@ -47,7 +47,7 @@ Logging.disable_logging(Logging.Warn)
 
 # Custom operators
 # square(x) = x * x
-exp(x, y) = x^y
+exponential(x, y) = x^y
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
@@ -55,7 +55,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     niterations_integration = 50,  # Use 3 for testing; 20 for production
     complexity_derivative = 15,
     complexity_integration = 15,
-    binary_operators = (+, *, -, /, exp),
+    binary_operators = (+, *, -, /, exponential),
     unary_operators = (), # square
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
