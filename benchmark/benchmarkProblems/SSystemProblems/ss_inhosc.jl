@@ -49,8 +49,8 @@ function generate_ss_inhosc_data(;
     return t, X, input_values
 end
 
-function generate_ss_inhosc_experiments(; problem="ss_inhosc1")
-    noise_std = problem == "ss_inhosc1" ? 0.0 : 0.05
+function generate_ss_inhosc_experiments(; problem="ss_inhosc1", noise_std::Union{Float64,Nothing}=nothing)
+    noise_std = noise_std !== nothing ? noise_std : (problem == "ss_inhosc1" ? 0.0 : 0.05)
     experiments = []
     
     input_combinations = [

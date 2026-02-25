@@ -477,14 +477,26 @@ function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}
     
     # Special handling for simpleLin which supports num_trajectories natively
     experiments = if prefix == "simpleLin"
-        getfield(module_ref, exp_func)(
+        n_traj = num_trajectories === nothing ? 1 : num_trajectories
+        # Generate enough experiments to satisfy num_trajectories.
+        # The generator produces 8 × n_per_exp entries; we want exactly n_traj total.
+        # Request enough per-experiment trajectories so 8 × n_per_exp >= n_traj,
+        # then truncate to exactly n_traj.
+        n_per_exp = max(1, cld(n_traj, 8))  # ceiling division
+        all_exps = getfield(module_ref, exp_func)(
             noise_std = noise_std,
-            num_trajectories = num_trajectories === nothing ? 1 : num_trajectories)
+            num_trajectories = n_per_exp)
+        all_exps[1:min(n_traj, length(all_exps))]
     else
-        # Standard: call generate_*_experiments(problem=problem_name)
-        getfield(module_ref, exp_func)(problem=problem_name)
+        # Forward noise_std so callers can override per-problem defaults (Bug 1 fix)
+        getfield(module_ref, exp_func)(problem=problem_name, noise_std=noise_std)
     end
     
+    # simpleLin already produced exactly the right number of trajectories above
+    if prefix == "simpleLin"
+        return experiments
+    end
+
     # Handle num_trajectories parameter
     if num_trajectories !== nothing
         n_available = length(experiments)

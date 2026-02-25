@@ -54,32 +54,41 @@ function generate_ss_feedf_data(;
     return t, X, input_values
 end
 
-function generate_ss_feedf_experiments(; problem="ss_feedf1")
-    noise_std = problem == "ss_feedf1" ? 0.0 : 0.05
+function generate_ss_feedf_experiments(; problem="ss_feedf1", noise_std::Union{Float64,Nothing}=nothing)
+    noise_std = noise_std !== nothing ? noise_std : (problem == "ss_feedf1" ? 0.0 : 0.05)
     experiments = []
-    
-    for exp in 1:16
-        X0 = [0.5, 0.4, 1.5, 0.8] .* (1.0 .+ 0.75 * (2.0 * rand(4) .- 1.0))
+
+    # Bug 2 fix: vary both input levels (X5=In1, X6=In2) across experiments.
+    # Using a 4×4 grid so the SR can learn the functional dependence on inputs.
+    in1_vals = [0.5, 1.0, 1.5, 2.0]
+    in2_vals = [0.5, 1.0, 1.5, 2.0]
+
+    exp_num = 1
+    for in1 in in1_vals, in2 in in2_vals
+        # Approximate S-system steady states: X_i_ss = In_i^2 for i=1,2
+        X_ss = [in1^2, in2^2, (1.5 * in1 * in2)^2, (1.5 * in1 * in2)^2]
+        X0 = X_ss .* (1.0 .+ 0.5 * (2.0 * rand(4) .- 1.0))
         X0 = max.(X0, 0.01)
-        
+
         t, X, input_values = generate_ss_feedf_data(
-            In1_const=1.0,
-            In2_const=1.0,
+            In1_const=in1,
+            In2_const=in2,
             X0=X0,
             tspan=(0.0, 5.0),
             n_points=51,
             noise_std=noise_std
         )
-        
+
         push!(experiments, Dict(
-            :experiment => exp,
+            :experiment => exp_num,
             :t => t,
             :X => X,
             :inputs => input_values,
             :X0 => X0
         ))
+        exp_num += 1
     end
-    
+
     return experiments
 end
 

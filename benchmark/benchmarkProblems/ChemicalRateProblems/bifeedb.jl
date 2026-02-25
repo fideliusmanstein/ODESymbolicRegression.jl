@@ -165,12 +165,12 @@ Each experiment has different initial conditions (±75% of steady state).
 Returns:
 - experiments: Vector of dictionaries
 """
-function generate_bifeedb_experiments(; problem="bifeedb1")
+function generate_bifeedb_experiments(; problem="bifeedb1", noise_std::Union{Float64,Nothing}=nothing)
     if problem == "bifeedb1"
-        noise_std = 0.0
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         n_states = 4
     elseif problem == "bifeedb2"
-        noise_std = 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.05
         n_states = 5
     else
         error("Unknown problem: $problem. Choose from bifeedb1, bifeedb2")

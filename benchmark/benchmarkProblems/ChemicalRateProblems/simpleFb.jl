@@ -112,9 +112,9 @@ Problem variants:
 Returns:
 - experiments: Vector of dictionaries with :t, :X, :X0 for each experiment
 """
-function generate_simplefb_experiments(; problem="simpleFb1")
+function generate_simplefb_experiments(; problem="simpleFb1", noise_std::Union{Float64,Nothing}=nothing)
     if problem == "simpleFb1"
-        noise_std = 0.0
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         initial_conditions = [
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -122,7 +122,7 @@ function generate_simplefb_experiments(; problem="simpleFb1")
             [0.5, 0.5, 0.5]
         ]
     elseif problem == "simpleFb2"
-        noise_std = 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.05
         initial_conditions = [
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -130,10 +130,10 @@ function generate_simplefb_experiments(; problem="simpleFb1")
             [0.5, 0.5, 0.5]
         ]
     elseif problem == "simpleFb3"
-        noise_std = 0.0
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         initial_conditions = [[1.0, 0.0, 0.0]]
     elseif problem == "simpleFb4"
-        noise_std = 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.05
         initial_conditions = [[1.0, 0.0, 0.0]]
     else
         error("Unknown problem: $problem. Choose from simpleFb1, simpleFb2, simpleFb3, simpleFb4")

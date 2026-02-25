@@ -171,15 +171,15 @@ Problem variants:
 Returns:
 - experiments: Vector of dictionaries with :t, :X, :inputs, :params
 """
-function generate_metabol_experiments(; problem="metabol1")
+function generate_metabol_experiments(; problem="metabol1", noise_std::Union{Float64,Nothing}=nothing)
     if problem == "metabol1"
-        noise_std = 0.0
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         n_points = 7
     elseif problem == "metabol2"
-        noise_std = 0.1
+        noise_std = noise_std !== nothing ? noise_std : 0.1
         n_points = 21
     elseif problem == "metabol3"
-        noise_std = 0.2
+        noise_std = noise_std !== nothing ? noise_std : 0.2
         n_points = 21
     else
         error("Unknown problem: $problem. Choose from metabol1, metabol2, metabol3")

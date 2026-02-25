@@ -192,11 +192,11 @@ Problem variants:
 Returns:
 - experiments: Vector of dictionaries
 """
-function generate_threegenes_experiments(; problem="threeGenes1")
+function generate_threegenes_experiments(; problem="threeGenes1", noise_std::Union{Float64,Nothing}=nothing)
     if problem == "threeGenes1"
-        noise_std = 0.0
+        noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "threeGenes2"
-        noise_std = 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.05
     else
         error("Unknown problem: $problem. Choose from threeGenes1, threeGenes2")
     end

@@ -77,7 +77,7 @@ function generate_ss_30genes_data(;
     return t, X, input_values
 end
 
-function generate_ss_30genes_experiments(; problem="ss_30genes1")
+function generate_ss_30genes_experiments(; problem="ss_30genes1", noise_std::Union{Float64,Nothing}=nothing)
     params = Dict(
         "ss_30genes1" => (n_exp=15, n_points=11, noise_std=0.0),
         "ss_30genes2" => (n_exp=20, n_points=11, noise_std=0.10),
@@ -89,6 +89,7 @@ function generate_ss_30genes_experiments(; problem="ss_30genes1")
     end
     
     p = params[problem]
+    _noise = noise_std !== nothing ? noise_std : p.noise_std
     experiments = []
     
     for exp in 1:p.n_exp
@@ -99,7 +100,7 @@ function generate_ss_30genes_experiments(; problem="ss_30genes1")
             X0=X0,
             tspan=(0.0, 10.0),
             n_points=p.n_points,
-            noise_std=p.noise_std
+            noise_std=_noise
         )
         
         push!(experiments, Dict(

@@ -103,11 +103,11 @@ Problem variants:
 Returns:
 - experiments: Vector of dictionaries with :t, :X, :X0 for each experiment
 """
-function generate_osc_experiments(; problem="osc1")
+function generate_osc_experiments(; problem="osc1", noise_std::Union{Float64,Nothing}=nothing)
     if problem == "osc1"
-        noise_std = 0.0
+        noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "osc2"
-        noise_std = 0.03
+        noise_std = noise_std !== nothing ? noise_std : 0.03
     else
         error("Unknown problem: $problem. Choose from osc1, osc2")
     end

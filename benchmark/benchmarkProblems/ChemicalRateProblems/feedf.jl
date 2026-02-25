@@ -158,44 +158,57 @@ Each experiment has different initial conditions (±75% of steady state).
 Returns:
 - experiments: Vector of dictionaries
 """
-function generate_feedf_experiments(; problem="feedf1")
+function generate_feedf_experiments(; problem="feedf1", noise_std::Union{Float64,Nothing}=nothing)
     if problem == "feedf1"
-        noise_std = 0.0
+        noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "feedf2"
-        noise_std = 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.05
     else
         error("Unknown problem: $problem. Choose from feedf1, feedf2")
     end
-    
+
     experiments = []
-    
-    # Steady state values (approximate)
-    X_ss = [0.5, 0.4, 1.5, 0.8]
-    
-    # Generate 16 different initial conditions
-    for exp in 1:16
-        # Vary initial conditions ±75% of steady state
-        X0 = X_ss .* (1.0 .+ 0.75 * (2.0 * rand(4) .- 1.0))
-        X0 = max.(X0, 0.01)  # Ensure positive values
-        
+
+    # Bug 2 fix: vary both input levels across experiments (4×4 grid).
+    # Values are chosen so that In1 + In2 < 1, which guarantees finite steady
+    # states for all four state variables.
+    in1_vals = [0.1, 0.2, 0.3, 0.4]
+    in2_vals = [0.1, 0.2, 0.3, 0.4]
+
+    exp_num = 1
+    for in1 in in1_vals, in2 in in2_vals
+        # Compute true steady states for this (In1, In2) combination:
+        #   X1_ss = 0.5·In1 / (1 − In1)
+        #   X2_ss = 0.4·In2 / (1 − In2)
+        #   X3_ss = X4_ss = 0.3·(In1+In2) / (1 − In1 − In2)
+        X1_ss = 0.5 * in1 / (1.0 - in1)
+        X2_ss = 0.4 * in2 / (1.0 - in2)
+        X34_ss = 0.3 * (in1 + in2) / (1.0 - in1 - in2)
+        X_ss = [X1_ss, X2_ss, X34_ss, X34_ss]
+
+        # Perturb initial conditions ±50 % around the steady state
+        X0 = X_ss .* (1.0 .+ 0.5 * (2.0 * rand(4) .- 1.0))
+        X0 = max.(X0, 0.01)
+
         t, X, input_values = generate_feedf_data(
-            In1_const=1.0,
-            In2_const=1.0,
+            In1_const=in1,
+            In2_const=in2,
             X0=X0,
             tspan=(0.0, 5.0),
             n_points=51,
             noise_std=noise_std
         )
-        
+
         push!(experiments, Dict(
-            :experiment => exp,
+            :experiment => exp_num,
             :t => t,
             :X => X,
             :inputs => input_values,
             :X0 => X0
         ))
+        exp_num += 1
     end
-    
+
     return experiments
 end
 
