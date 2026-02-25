@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name  
+#SBATCH --job-name=ode_benchmark
 #SBATCH --output=benchmark_output/results_%x_%j.txt
 #SBATCH --error=benchmark_output/errors_%x_%j.txt
 #SBATCH --nodes=1
