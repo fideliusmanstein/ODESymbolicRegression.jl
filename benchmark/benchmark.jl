@@ -46,7 +46,8 @@ Logging.disable_logging(Logging.Warn)
 # =============================================================================
 
 # Custom operators
-square(x) = x * x
+# square(x) = x * x
+exp(x, y) = x^y
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
@@ -54,16 +55,16 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     niterations_integration = 50,  # Use 3 for testing; 20 for production
     complexity_derivative = 15,
     complexity_integration = 15,
-    binary_operators = (+, *, -, /),
-    unary_operators = (square,),
+    binary_operators = (+, *, -, /, exp),
+    unary_operators = (), # square
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
 )
 
 # Multi-trajectory configuration for robust evaluation
-const NUM_TRAJECTORIES = 10  # Use 3 different ICs per experiment for validation
+const NUM_TRAJECTORIES = 5  # Use 3 different ICs per experiment for validation
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const MAX_PROBLEMS_TO_TEST = 5  # Options: nothing, 5, 10, 20, etc.
+const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 
 # Problems that timeout with minimal config (too many variables/experiments)
