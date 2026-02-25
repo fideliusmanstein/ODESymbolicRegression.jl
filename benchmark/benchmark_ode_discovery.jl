@@ -510,14 +510,17 @@ function benchmark_single_problem(problem_name;
 
                 ground_truth_outputs = Float64[]
                 discovered_outputs = Float64[]
+                first_error = nothing  # capture first exception for diagnostics
 
                 # Evaluate both equations on test points
                 for j in 1:n_samples
                     x_vals = test_points[j, :]
 
                     try
-                        # Evaluate ground truth via the pre-compiled lambda (no global pollution)
-                        gt_val = gt_func(x_vals...)
+                        # Evaluate ground truth via the pre-compiled lambda.
+                        # invokelatest is REQUIRED because gt_func was created by eval()
+                        # inside this function, making it "newer world" than the caller.
+                        gt_val = Base.invokelatest(gt_func, x_vals...)
 
                         # Evaluate discovered tree (reshape to column vector for DynamicExpressions)
                         disc_result = eval_tree_array(disc_tree, reshape(x_vals, n_features, 1), sr_options.operators)
@@ -527,9 +530,17 @@ function benchmark_single_problem(problem_name;
                             push!(ground_truth_outputs, Float64(gt_val))
                             push!(discovered_outputs, Float64(disc_val))
                         end
-                    catch
+                    catch e
+                        if first_error === nothing
+                            first_error = (sample=j, err=e, bt=catch_backtrace())
+                        end
                         continue
                     end
+                end
+
+                # Log first caught exception so "0 valid samples" failures are diagnosable
+                if first_error !== nothing && length(ground_truth_outputs) == 0
+                    @warn "Equation $i similarity scoring: all samples failed" problem=problem_name first_sample=first_error.sample first_error=sprint(showerror, first_error.err, first_error.bt)
                 end
                 
                 # Compute error metrics
