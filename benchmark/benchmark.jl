@@ -63,7 +63,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 # Multi-trajectory configuration for robust evaluation
 const NUM_TRAJECTORIES = 10  # Use 3 different ICs per experiment for validation
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const MAX_PROBLEMS_TO_TEST = 10  # Options: nothing, 5, 10, 20, etc.
+const MAX_PROBLEMS_TO_TEST = 5  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 
 # Problems that timeout with minimal config (too many variables/experiments)
