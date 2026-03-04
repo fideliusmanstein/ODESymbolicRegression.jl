@@ -47,19 +47,19 @@ Logging.disable_logging(Logging.Warn)
 
 # Custom operators
 square(x) = x * x
-
-function safe_exponential(x, y)
-    val = try
-        x ^ y
-    catch
-        return NaN
-    end
-    # Only return if real and finite, else NaN
-    if !isreal(val) || !isfinite(val)
-        return NaN
-    end
-    return real(val)
-end
+inv(x) = 1 / x
+# function safe_exponential(x, y)
+#     val = try
+#         x ^ y
+#     catch
+#         return NaN
+#     end
+#     # Only return if real and finite, else NaN
+#     if !isreal(val) || !isfinite(val)
+#         return NaN
+#     end
+#     return real(val)
+# end
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
@@ -67,8 +67,8 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     niterations_integration = 50,  # Use 3 for testing; 20 for production
     complexity_derivative = 25,
     complexity_integration = 25,
-    binary_operators = (+, *, -, /, safe_exponential),
-    unary_operators = (square,),
+    binary_operators = (+, *, -, /),
+    unary_operators = (square, inv),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
 )
@@ -78,6 +78,7 @@ const NUM_TRAJECTORIES = 5  # Use 3 different ICs per experiment for validation
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
+const PROBLEMS_OVERRIDE = ["ss_5genes8"]  # Set to e.g. ["ss_5genes8"] or nothing
 
 # Problems that timeout with minimal config (too many variables/experiments)
 const TIMEOUT_PROBLEMS = [
@@ -103,6 +104,17 @@ Respects MAX_PROBLEMS_TO_TEST if set.
 function get_test_problems()
     all_problems_dict = BenchmarkSystems.list_problems()
     all_problems_full = sort(collect(keys(all_problems_dict)))
+
+    # If PROBLEMS_OVERRIDE is set, run only those problems
+    if PROBLEMS_OVERRIDE !== nothing
+        testable_problems = filter(p -> p in PROBLEMS_OVERRIDE, all_problems_full)
+        return (
+            all = all_problems_full,
+            testable = testable_problems,
+            excluded = TIMEOUT_PROBLEMS
+        )
+    end
+
     testable_problems = filter(p -> !(p in TIMEOUT_PROBLEMS), all_problems_full)
     
     # Limit number of problems if MAX_PROBLEMS_TO_TEST is set
