@@ -48,7 +48,7 @@ Logging.disable_logging(Logging.Warn)
 # Custom operators
 square(x) = x * x
 inv(x) = 1 / x
-sqrt(x) = x < 0 ? NaN : sqrt(x)  # Return NaN for negative inputs to avoid complex numbers
+sqrt(x::T) where {T} = x > 0 ? sqrt(x) : T(NaN)
 # function safe_exponential(x, y)
 #     val = try
 #         x ^ y
