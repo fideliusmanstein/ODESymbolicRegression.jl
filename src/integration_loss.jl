@@ -101,11 +101,12 @@ function evaluate_ode_system(trees::Vector, loss_config::IntegrationLoss)
             prob = ODEProblem(ode_dynamics!, x0, tspan)
             sol = solve(
                 prob,
-                AutoTsit5(Rosenbrock23()),
+                Tsit5(),  # explicit solver — no Jacobian, thread-safe with DynamicExpressions
                 saveat=t,
-                maxiters=5000,
+                maxiters=10_000,
                 abstol=1e-3,
-                reltol=1e-3
+                reltol=1e-3,
+                verbose=false
             )
             
             # Check if solution succeeded and has correct length

@@ -48,6 +48,7 @@ Logging.disable_logging(Logging.Warn)
 # Custom operators
 square(x) = x * x
 inv(x) = 1 / x
+sqrt(x) = x < 0 ? NaN : sqrt(x)  # Return NaN for negative inputs to avoid complex numbers
 # function safe_exponential(x, y)
 #     val = try
 #         x ^ y
@@ -68,7 +69,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     complexity_derivative = 25,
     complexity_integration = 25,
     binary_operators = (+, *, -, /),
-    unary_operators = (square, inv),
+    unary_operators = (square, inv, sqrt),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
 )
