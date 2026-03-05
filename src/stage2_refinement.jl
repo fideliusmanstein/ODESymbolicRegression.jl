@@ -91,6 +91,7 @@ function find_best_initial_combination(
 
         comb_counter = Base.Threads.Atomic{Int}(0)
         progress_step = max(1, div(total_combinations, 10))
+        global_best_loss = Base.Threads.Atomic{Float64}(Inf)
 
         Base.Threads.@threads for lin in 1:total_combinations
             try
@@ -113,13 +114,22 @@ function find_best_initial_combination(
                     local_best_loss[tid] = loss
                     local_best_indices[tid] = copy(idx_buf)
                     local_best_trees[tid] = copy(tree_buf)
+                    # update global best atomically (compare-and-swap loop)
+                    old = global_best_loss[]
+                    while loss < old
+                        prev = Base.Threads.atomic_cas!(global_best_loss, old, loss)
+                        prev == old && break  # swap succeeded
+                        old = prev            # retry with updated value
+                    end
                 end
 
                 if verbose
                     curr = Base.Threads.atomic_add!(comb_counter, 1) + 1
                     if curr % progress_step == 0
                         progress_pct = round(100 * curr / total_combinations, digits=1)
-                        println("  Progress: $curr/$total_combinations ($progress_pct%)")
+                        current_best = global_best_loss[]
+                        best_str = isfinite(current_best) ? string(round(current_best, sigdigits=4)) : "Inf"
+                        println("  Progress: $curr/$total_combinations ($progress_pct%) | best loss so far: $best_str")
                     end
                 end
             catch e
@@ -159,7 +169,8 @@ function find_best_initial_combination(
             tested += 1
             if verbose && tested % max(1, div(total_combinations, 10)) == 0
                 progress_pct = round(100 * tested / total_combinations, digits=1)
-                println("  Progress: $tested/$total_combinations ($progress_pct%)")
+                best_str = isfinite(best_l) ? string(round(best_l, sigdigits=4)) : "Inf"
+                println("  Progress: $tested/$total_combinations ($progress_pct%) | best loss so far: $best_str")
             end
 
             cur_trees = Vector{Any}(undef, nstates)
@@ -270,9 +281,13 @@ function refine_with_integration(
     # Filter candidates and create symbolic regression options
     filtered_candidates, sr_options = filter_candidates_by_complexity(derivative_candidates, ode_options)
     loss_config = IntegrationLoss(experiments)
-    
+
     # Find best initial combination from candidates
     if verbose
+        total_combos = prod([length(fc) for fc in filtered_candidates])
+        counts = [length(fc) for fc in filtered_candidates]
+        println("Candidates per state: ", join(counts, ", "))
+        println("Total combinations to evaluate: $total_combos")
         println("Finding best initial combination...")
     end
     

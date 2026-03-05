@@ -78,6 +78,11 @@ function discover_derivatives(experiments::Vector, ode_options::ODERegressionOpt
         
         if ode_options.verbose
             println("  Found ", length(pareto_frontier), " candidate equations")
+            if !isempty(pareto_frontier)
+                best = pareto_frontier[end]  # highest complexity = lowest loss on Pareto front
+                println("  Best candidate: complexity=$(best.complexity), loss=$(round(best.loss, sigdigits=4))")
+                println("  Equation: ", string_tree(best.tree, sr_options))
+            end
         end
     end
     
