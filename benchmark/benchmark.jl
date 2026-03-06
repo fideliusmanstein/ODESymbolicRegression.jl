@@ -91,9 +91,9 @@ const TIMEOUT_PROBLEMS = [
     "ss_30genes1",   # 30 states, 8-20 experiments, up to 41 time points
     "ss_30genes2",
     "ss_30genes3",
-    "ss_cascade3",  # TODO: this problem gets stuck on the server. Figure out why
-    "ss_5genes8",
-    "ss_5genes6", # these two take really long
+    # "ss_cascade3",  # TODO: this problem gets stuck on the server. Figure out why
+    # "ss_5genes8",
+    # "ss_5genes6", # these two take really long
 ]
 
 # =============================================================================
@@ -302,7 +302,7 @@ end
 # =============================================================================
 
 # Get test problems
-problems = get_test_problems()
+problems = get_nonredundant_problems()
 
 # Print header
 print_test_header(problems, TEST_OPTIONS, NUM_TRAJECTORIES, NOISE_STD, MAX_PROBLEMS_TO_TEST, TIMEOUT_SECONDS)
