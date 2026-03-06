@@ -64,7 +64,7 @@ sqrtp(x::T) where {T} = x > 0 ? sqrt(x) : T(NaN)
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative = 3,  # Use 3 for testing; 100 for production
+    niterations_derivative = 150,  # Use 3 for testing; 100 for production
     niterations_integration = 0,  # Use 3 for testing; 20 for production
     complexity_derivative = 15,
     complexity_integration = 15,
@@ -83,7 +83,7 @@ const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 
 const N_POINTS = 51  # Time points per trajectory (nothing = use each problem's default)
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
-const PROBLEMS_OVERRIDE = nothing  # Set to e.g. ["ss_5genes8"] or nothing
+const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
 
 # Problems that timeout with minimal config (too many variables/experiments)
 const TIMEOUT_PROBLEMS = [
