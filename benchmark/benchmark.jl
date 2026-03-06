@@ -64,7 +64,7 @@ sqrtp(x::T) where {T} = x > 0 ? sqrt(x) : T(NaN)
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative = 150,  # Use 3 for testing; 100 for production
+    niterations_derivative = 3,  # Use 3 for testing; 100 for production
     niterations_integration = 0,  # Use 3 for testing; 20 for production
     complexity_derivative = 15,
     complexity_integration = 15,
@@ -80,6 +80,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 # if the problem has fewer, the remainder are filled with perturbed copies of existing ICs.
 const NUM_TRAJECTORIES = 5
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
+const N_POINTS = 51  # Time points per trajectory (nothing = use each problem's default)
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = nothing  # Set to e.g. ["ss_5genes8"] or nothing
@@ -138,17 +139,23 @@ end
 """
     get_nonredundant_problems()
 
-Automatically selects one representative problem per (family, n_states) group,
-choosing the variant with the most pre-defined experiments.
+Automatically selects one representative problem per structural group,
+choosing the variant with the most pre-defined experiments within each group.
 
-Rationale:
-- Problems in the same family with the same n_states differ only in data quantity
-  or noise level. Since NOISE_STD overrides noise and NUM_TRAJECTORIES controls
-  the exact number of trajectories used, the variant with the most pre-defined
-  experiments gives the best real data coverage before perturbed copies are needed.
-- Structurally distinct variants (different n_states within the same family, e.g.
-  inhosc1=2 states vs inhosc2=4 states) are always both kept.
-- TIMEOUT_PROBLEMS are excluded before selection.
+Grouping key: (family_prefix, n_states [, points_per_exp])
+- family_prefix and n_states are always part of the key: variants with different
+  state-space sizes (e.g. inhosc1=2 states vs inhosc2=4 states) are structurally
+  distinct and always kept separately.
+- points_per_exp is included in the key only when N_POINTS === nothing, i.e. when
+  each problem uses its own native time resolution. In that case variants with
+  different point counts differ in the information they carry and are kept separately
+  (e.g. ss_branch1=21 pts vs ss_branch2=51 pts).
+  When N_POINTS is set to a concrete value all variants receive the same resolution,
+  so point-count differences become irrelevant and are not used for grouping.
+
+Within each group the variant with the most pre-defined experiments is selected,
+giving the best real-data coverage before perturbed copies are needed.
+TIMEOUT_PROBLEMS are excluded before selection.
 """
 function get_nonredundant_problems()
     all_problems_dict = BenchmarkSystems.list_problems()
@@ -160,12 +167,27 @@ function get_nonredundant_problems()
     # Extract the family prefix by stripping the trailing digit(s)
     family_prefix(name) = match(r"^(.*?)\d+$", name)[1]
 
-    # Group by (family_prefix, n_states): same prefix + same n_states = redundant variants
-    groups = Dict{Tuple{String,Int}, Vector{String}}()
+    # Build grouping key.
+    # When N_POINTS is nothing each variant keeps its native time resolution, so
+    # variants with different points_per_exp are structurally distinct and get
+    # separate groups (and are therefore both selected).
+    # When N_POINTS is overridden all variants use the same resolution, so
+    # points_per_exp is not part of the key and only the best-experiment variant
+    # survives per (family, n_states) pair.
+    function group_key(p)
+        info    = all_problems_dict[p]
+        prefix  = family_prefix(p)
+        n_state = info[:states]
+        if N_POINTS === nothing
+            return (prefix, n_state, info[:points_per_exp])
+        else
+            return (prefix, n_state, 0)   # 0 collapses all point counts into one group
+        end
+    end
+
+    groups = Dict{Tuple{String,Int,Int}, Vector{String}}()
     for p in candidates
-        prefix = family_prefix(p)
-        n_states = all_problems_dict[p][:states]
-        key = (prefix, n_states)
+        key = group_key(p)
         push!(get!(groups, key, String[]), p)
     end
 
@@ -216,7 +238,7 @@ end
 Run discovery on a single benchmark problem with multiple trajectories.
 Returns a result dictionary with success status and metrics.
 """
-function run_single_benchmark(problem_name, num_trajectories, noise_std)
+function run_single_benchmark(problem_name, num_trajectories, noise_std, n_points=nothing)
     println("  Loading problem with $num_trajectories trajectories per experiment, noise_std=$noise_std...")
     
     try
@@ -224,7 +246,8 @@ function run_single_benchmark(problem_name, num_trajectories, noise_std)
             problem_name,
             ode_options = TEST_OPTIONS,
             num_trajectories = num_trajectories,
-            noise_std = noise_std
+            noise_std = noise_std,
+            n_points = n_points
         )
         return result
         
@@ -250,13 +273,13 @@ If timeout_seconds is nothing, runs without timeout.
 Returns:
 - (completed::Bool, result::Dict): Whether test finished and the results
 """
-function run_with_timeout(problem_name, num_trajectories, noise_std, timeout_seconds)
+function run_with_timeout(problem_name, num_trajectories, noise_std, timeout_seconds, n_points=nothing)
     timeout_msg = timeout_seconds === nothing ? "no timeout" : "$(timeout_seconds)s"
     println("Testing: $problem_name (timeout: $timeout_msg, trajectories: $num_trajectories, noise: $noise_std)")
     
     # If no timeout, run directly
     if timeout_seconds === nothing
-        result = run_single_benchmark(problem_name, num_trajectories, noise_std)
+        result = run_single_benchmark(problem_name, num_trajectories, noise_std, n_points)
         return (true, result)
     end
     
@@ -265,7 +288,7 @@ function run_with_timeout(problem_name, num_trajectories, noise_std, timeout_sec
     
     # Launch async task
     task = @async begin
-        result = run_single_benchmark(problem_name, num_trajectories, noise_std)
+        result = run_single_benchmark(problem_name, num_trajectories, noise_std, n_points)
         put!(result_channel, result)
     end
     
@@ -327,7 +350,8 @@ end
                 problem_name,
                 NUM_TRAJECTORIES,
                 NOISE_STD,
-                TIMEOUT_SECONDS
+                TIMEOUT_SECONDS,
+                N_POINTS
             )
             
             # Store result

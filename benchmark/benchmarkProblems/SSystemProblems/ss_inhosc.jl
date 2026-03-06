@@ -49,7 +49,7 @@ function generate_ss_inhosc_data(;
     return t, X, input_values
 end
 
-function generate_ss_inhosc_experiments(; problem="ss_inhosc1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_inhosc_experiments(; problem="ss_inhosc1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     
@@ -61,12 +61,13 @@ function generate_ss_inhosc_experiments(; problem="ss_inhosc1", noise_std::Union
     ]
     
     for (exp, combo) in enumerate(input_combinations)
+        _n_points = n_points !== nothing ? n_points : 51
         t, X, input_values = generate_ss_inhosc_data(
             In_const=combo.In,
             Out_const=combo.Out,
             X0=ones(4),
             tspan=(0.0, 10.0),
-            n_points=51,
+            n_points=_n_points,
             noise_std=noise_std
         )
         

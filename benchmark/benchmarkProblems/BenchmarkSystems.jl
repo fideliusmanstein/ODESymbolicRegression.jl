@@ -471,7 +471,7 @@ experiments = load_problem("simpleLin1")
 experiments = load_problem("bifeedb1", num_trajectories=3)
 ```
 """
-function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing, noise_std::Float64=0.0)
+function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}=nothing, noise_std::Float64=0.0, n_points::Union{Int,Nothing}=nothing)
     # Find the problem configuration
     prefix, module_ref, exp_func, data_func, returns_3tuple, needs_inputs = find_problem_config(problem_name)
     
@@ -485,11 +485,12 @@ function load_problem(problem_name::String; num_trajectories::Union{Int,Nothing}
         n_per_exp = max(1, cld(n_traj, 8))  # ceiling division
         all_exps = getfield(module_ref, exp_func)(
             noise_std = noise_std,
-            num_trajectories = n_per_exp)
+            num_trajectories = n_per_exp,
+            n_points = n_points)
         all_exps[1:min(n_traj, length(all_exps))]
     else
         # Forward noise_std so callers can override per-problem defaults (Bug 1 fix)
-        getfield(module_ref, exp_func)(problem=problem_name, noise_std=noise_std)
+        getfield(module_ref, exp_func)(problem=problem_name, noise_std=noise_std, n_points=n_points)
     end
     
     # simpleLin already produced exactly the right number of trajectories above

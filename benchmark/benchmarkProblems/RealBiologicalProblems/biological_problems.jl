@@ -35,12 +35,13 @@ function generate_cytokine_data(; X0=ones(4), tspan=(0.0, 6.0), n_points=7, nois
     return t, X, input_values
 end
 
-function generate_cytokine_experiments(; problem="cytokine1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_cytokine_experiments(; problem="cytokine1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     _noise = noise_std !== nothing ? noise_std : 0.0
+    _n_points = n_points !== nothing ? n_points : 7
     X0_list = problem == "cytokine1" ? [ones(4)] : [1.2 .* ones(4)]
     experiments = []
     for (exp, X0) in enumerate(X0_list)
-        t, X, input_values = generate_cytokine_data(X0=X0, tspan=(0.0, 6.0), n_points=7, noise_std=_noise)
+        t, X, input_values = generate_cytokine_data(X0=X0, tspan=(0.0, 6.0), n_points=_n_points, noise_std=_noise)
         push!(experiments, Dict(:experiment => exp, :t => t, :X => X, :inputs => Dict(), :X0 => X0))
     end
     return experiments
@@ -81,15 +82,15 @@ function generate_ss_ethanolferm_data(; X0=ones(4), tspan=(0.0, 10.0), n_points=
     return t, X, input_values
 end
 
-function generate_ss_ethanolferm_experiments(; problem="ss_ethanolferm1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_ethanolferm_experiments(; problem="ss_ethanolferm1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     _noise = noise_std !== nothing ? noise_std : 0.0
     n_exp = problem == "ss_ethanolferm1" ? 3 : 2
-    n_points = problem == "ss_ethanolferm1" ? 15 : 13
+    _n_points = n_points !== nothing ? n_points : (problem == "ss_ethanolferm1" ? 15 : 13)
     experiments = []
     for exp in 1:n_exp
         X0 = 1.0 .+ 0.3 * randn(4)
         X0 = max.(X0, 0.1)
-        t, X, _ = generate_ss_ethanolferm_data(X0=X0, tspan=(0.0, 10.0), n_points=n_points, noise_std=_noise)
+        t, X, _ = generate_ss_ethanolferm_data(X0=X0, tspan=(0.0, 10.0), n_points=_n_points, noise_std=_noise)
         push!(experiments, Dict(:experiment => exp, :t => t, :X => X, :inputs => Dict(), :X0 => X0))
     end
     return experiments
@@ -130,12 +131,13 @@ function generate_ss_sosrepair_data(; X0=ones(6), tspan=(0.0, 50.0), n_points=50
     return t, X, input_values
 end
 
-function generate_ss_sosrepair_experiments(; problem="ss_sosrepair1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_sosrepair_experiments(; problem="ss_sosrepair1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     _noise = noise_std !== nothing ? noise_std : 0.0
+    _n_points = n_points !== nothing ? n_points : 50
     experiments = []
     X0 = 1.0 .+ 0.3 * randn(6)
     X0 = max.(X0, 0.1)
-    t, X, _ = generate_ss_sosrepair_data(X0=X0, tspan=(0.0, 50.0), n_points=50, noise_std=_noise)
+    t, X, _ = generate_ss_sosrepair_data(X0=X0, tspan=(0.0, 50.0), n_points=_n_points, noise_std=_noise)
     push!(experiments, Dict(:experiment => 1, :t => t, :X => X, :inputs => Dict(), :X0 => X0))
     return experiments
 end
@@ -175,12 +177,13 @@ function generate_ss_cadBA_data(; X0=ones(4), tspan=(0.0, 25.0), n_points=25, no
     return t, X, input_values
 end
 
-function generate_ss_cadBA_experiments(; problem="ss_cadBA1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_cadBA_experiments(; problem="ss_cadBA1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     _noise = noise_std !== nothing ? noise_std : 0.0
+    _n_points = n_points !== nothing ? n_points : 25
     experiments = []
     X0 = 1.0 .+ 0.3 * randn(4)
     X0 = max.(X0, 0.1)
-    t, X, _ = generate_ss_cadBA_data(X0=X0, tspan=(0.0, 25.0), n_points=25, noise_std=_noise)
+    t, X, _ = generate_ss_cadBA_data(X0=X0, tspan=(0.0, 25.0), n_points=_n_points, noise_std=_noise)
     push!(experiments, Dict(:experiment => 1, :t => t, :X => X, :inputs => Dict(), :X0 => X0))
     return experiments
 end
@@ -219,12 +222,13 @@ function generate_ss_clock_data(; X0=ones(7), tspan=(0.0, 12.0), n_points=12, no
     return t, X, input_values
 end
 
-function generate_ss_clock_experiments(; problem="ss_clock1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_clock_experiments(; problem="ss_clock1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     _noise = noise_std !== nothing ? noise_std : 0.0
+    _n_points = n_points !== nothing ? n_points : 12
     experiments = []
     X0 = 1.0 .+ 0.3 * randn(7)
     X0 = max.(X0, 0.1)
-    t, X, _ = generate_ss_clock_data(X0=X0, tspan=(0.0, 12.0), n_points=12, noise_std=_noise)
+    t, X, _ = generate_ss_clock_data(X0=X0, tspan=(0.0, 12.0), n_points=_n_points, noise_std=_noise)
     push!(experiments, Dict(:experiment => 1, :t => t, :X => X, :inputs => Dict(), :X0 => X0))
     return experiments
 end

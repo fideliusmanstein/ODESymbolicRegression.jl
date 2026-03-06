@@ -395,7 +395,8 @@ Benchmark ODE discovery on a single problem.
 function benchmark_single_problem(problem_name; 
                                  ode_options=nothing,
                                  num_trajectories=1,
-                                 noise_std=0.0)
+                                 noise_std=0.0,
+                                 n_points=nothing)
     
     println("\n" * "="^80)
     println("Benchmarking: $problem_name")
@@ -408,7 +409,7 @@ function benchmark_single_problem(problem_name;
     println("="^80)
     
     # Load problem with multiple trajectories for robust evaluation
-    experiments = BenchmarkSystems.load_problem(problem_name, num_trajectories=num_trajectories, noise_std=noise_std)
+    experiments = BenchmarkSystems.load_problem(problem_name, num_trajectories=num_trajectories, noise_std=noise_std, n_points=n_points)
     
     # Use default fast options if not provided
     if ode_options === nothing

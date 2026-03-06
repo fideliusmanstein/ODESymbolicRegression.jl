@@ -128,11 +128,19 @@ function generate_simplelin_data(;
     
     # Solve ODE
     t_eval = range(tspan[1], tspan[2], length=n_points)
-    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval)
+    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval, maxiters=10^6)
     
-    # Extract solution
-    t = sol.t
-    X = hcat(sol.u...)'  # Convert to matrix (n_points × 3)
+    # Extract solution — always returns exactly n_points rows even if the solver terminates early
+    n_expected = length(t_eval)
+    t = collect(t_eval)
+    n_got = length(sol.u)
+    X = if n_got == n_expected
+        hcat(sol.u...)'  # (n_points × n_states)
+    else
+        Xfill = fill(NaN, n_expected, length(X0))
+        for i in 1:n_got; Xfill[i, :] = sol.u[i]; end
+        Xfill
+    end
     
     # Add noise if requested
     if noise_std > 0.0
@@ -182,7 +190,8 @@ Arguments:
 Returns:
 - experiments: Vector of dictionaries, each containing :t, :X, :inputs, :params, :ic
 """
-function generate_simplelin_experiments(; noise_std=0.0, n_points=13, num_trajectories=1)
+function generate_simplelin_experiments(; noise_std=0.0, n_points::Union{Int,Nothing}=nothing, num_trajectories=1)
+    _n_points = n_points !== nothing ? n_points : 13
     experiment_params = [
         (X1=3.0, X2=2.0),
         (X1=4.0, X2=5.0),
@@ -221,7 +230,7 @@ function generate_simplelin_experiments(; noise_std=0.0, n_points=13, num_trajec
                 X4_0=X4_0,
                 X5_0=X5_0,
                 tspan=(0.0, 3.0),
-                n_points=n_points,
+                n_points=_n_points,
                 noise_std=noise_std
             )
             

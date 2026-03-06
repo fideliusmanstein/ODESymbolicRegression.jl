@@ -41,8 +41,9 @@ function generate_gma_feedf_data(; In1_const=1.0, In2_const=1.0, X0=[0.5, 0.5, 1
     return t, X, input_values
 end
 
-function generate_gma_feedf_experiments(; problem="gma_feedf1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_gma_feedf_experiments(; problem="gma_feedf1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     noise_std = noise_std !== nothing ? noise_std : 0.0
+    _n_points = n_points !== nothing ? n_points : 51
     experiments = []
     # Bug 2 fix: vary both input levels (X5=In1, X6=In2) across experiments (4×4 grid).
     in1_vals = [0.5, 1.0, 1.5, 2.0]
@@ -53,7 +54,7 @@ function generate_gma_feedf_experiments(; problem="gma_feedf1", noise_std::Union
         X0 = X_ss .* (1.0 .+ 0.5 * (2.0 * rand(4) .- 1.0))
         X0 = max.(X0, 0.01)
         t, X, input_values = generate_gma_feedf_data(In1_const=in1, In2_const=in2, X0=X0,
-                                                      tspan=(0.0, 5.0), n_points=51, noise_std=noise_std)
+                                                      tspan=(0.0, 5.0), n_points=_n_points, noise_std=noise_std)
         push!(experiments, Dict(:experiment => exp_num, :t => t, :X => X, :inputs => input_values, :X0 => X0))
         exp_num += 1
     end
@@ -99,13 +100,14 @@ function generate_gma_inhosc_data(; In_const=1.0, Out_const=1.0, X0=ones(4),
     return t, X, input_values
 end
 
-function generate_gma_inhosc_experiments(; problem="gma_inhosc1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_gma_inhosc_experiments(; problem="gma_inhosc1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     noise_std = noise_std !== nothing ? noise_std : 0.0
+    _n_points = n_points !== nothing ? n_points : 51
     experiments = []
     input_combinations = [(In=0.8, Out=0.8), (In=1.0, Out=1.0), (In=1.2, Out=1.0), (In=1.0, Out=1.2)]
     for (exp, combo) in enumerate(input_combinations)
         t, X, input_values = generate_gma_inhosc_data(In_const=combo.In, Out_const=combo.Out,
-                                                      X0=ones(4), tspan=(0.0, 10.0), n_points=51, noise_std=noise_std)
+                                                      X0=ones(4), tspan=(0.0, 10.0), n_points=_n_points, noise_std=noise_std)
         push!(experiments, Dict(:experiment => exp, :t => t, :X => X, :inputs => input_values, :X0 => ones(4)))
     end
     return experiments
@@ -151,14 +153,15 @@ function generate_gma_bifeedb_data(; X0=ones(5), tspan=(0.0, 5.0), n_points=51, 
     return t, X, input_values
 end
 
-function generate_gma_bifeedb_experiments(; problem="gma_bifeedb1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_gma_bifeedb_experiments(; problem="gma_bifeedb1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     noise_std = noise_std !== nothing ? noise_std : 0.0
+    _n_points = n_points !== nothing ? n_points : 51
     experiments = []
     X_ss = [0.5, 1.0, 1.5, 2.0, 2.5]
     for exp in 1:16
         X0 = X_ss .* (1.0 .+ 0.75 * (2.0 * rand(5) .- 1.0))
         X0 = max.(X0, 0.01)
-        t, X, _ = generate_gma_bifeedb_data(X0=X0, tspan=(0.0, 5.0), n_points=51, noise_std=noise_std)
+        t, X, _ = generate_gma_bifeedb_data(X0=X0, tspan=(0.0, 5.0), n_points=_n_points, noise_std=noise_std)
         push!(experiments, Dict(:experiment => exp, :t => t, :X => X, :inputs => Dict(), :X0 => X0))
     end
     return experiments

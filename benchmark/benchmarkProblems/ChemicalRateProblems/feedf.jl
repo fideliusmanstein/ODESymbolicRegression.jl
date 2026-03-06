@@ -119,11 +119,18 @@ function generate_feedf_data(;
     
     # Solve ODE
     t_eval = range(tspan[1], tspan[2], length=n_points)
-    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval)
+    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval, maxiters=10^6)
     
-    # Extract solution
-    t = sol.t
-    X = hcat(sol.u...)'
+    # Extract solution — always returns exactly n_points rows even if the solver terminates early
+    t = collect(t_eval)
+    n_got = length(sol.u)
+    X = if n_got == n_points
+        hcat(sol.u...)'
+    else
+        Xfill = fill(NaN, n_points, length(X0))
+        for i in 1:n_got; Xfill[i, :] = sol.u[i]; end
+        Xfill
+    end
     
     # Add noise if requested
     if noise_std > 0.0
@@ -158,7 +165,7 @@ Each experiment has different initial conditions (±75% of steady state).
 Returns:
 - experiments: Vector of dictionaries
 """
-function generate_feedf_experiments(; problem="feedf1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_feedf_experiments(; problem="feedf1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     if problem == "feedf1"
         noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "feedf2"
@@ -190,12 +197,13 @@ function generate_feedf_experiments(; problem="feedf1", noise_std::Union{Float64
         X0 = X_ss .* (1.0 .+ 0.5 * (2.0 * rand(4) .- 1.0))
         X0 = max.(X0, 0.01)
 
+        _n_points = n_points !== nothing ? n_points : 51
         t, X, input_values = generate_feedf_data(
             In1_const=in1,
             In2_const=in2,
             X0=X0,
             tspan=(0.0, 5.0),
-            n_points=51,
+            n_points=_n_points,
             noise_std=noise_std
         )
 

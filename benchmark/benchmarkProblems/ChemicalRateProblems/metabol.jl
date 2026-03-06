@@ -133,11 +133,18 @@ function generate_metabol_data(;
     
     # Solve ODE
     t_eval = range(tspan[1], tspan[2], length=n_points)
-    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval)
+    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval, maxiters=10^6)
     
-    # Extract solution
-    t = sol.t
-    X = hcat(sol.u...)'
+    # Extract solution — always returns exactly n_points rows even if the solver terminates early
+    t = collect(t_eval)
+    n_got = length(sol.u)
+    X = if n_got == n_points
+        hcat(sol.u...)'
+    else
+        Xfill = fill(NaN, n_points, length(X0))
+        for i in 1:n_got; Xfill[i, :] = sol.u[i]; end
+        Xfill
+    end
     
     # Add noise if requested
     if noise_std > 0.0
@@ -171,16 +178,16 @@ Problem variants:
 Returns:
 - experiments: Vector of dictionaries with :t, :X, :inputs, :params
 """
-function generate_metabol_experiments(; problem="metabol1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_metabol_experiments(; problem="metabol1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     if problem == "metabol1"
         noise_std = noise_std !== nothing ? noise_std : 0.0
-        n_points = 7
+        _n_points = n_points !== nothing ? n_points : 7
     elseif problem == "metabol2"
         noise_std = noise_std !== nothing ? noise_std : 0.0
-        n_points = 21
+        _n_points = n_points !== nothing ? n_points : 21
     elseif problem == "metabol3"
         noise_std = noise_std !== nothing ? noise_std : 0.0
-        n_points = 21
+        _n_points = n_points !== nothing ? n_points : 21
     else
         error("Unknown problem: $problem. Choose from metabol1, metabol2, metabol3")
     end
@@ -213,7 +220,7 @@ function generate_metabol_experiments(; problem="metabol1", noise_std::Union{Flo
             X6_0=1.0,
             X7_0=1.0,
             tspan=(0.0, 150.0),
-            n_points=n_points,
+            n_points=_n_points,
             noise_std=noise_std
         )
         

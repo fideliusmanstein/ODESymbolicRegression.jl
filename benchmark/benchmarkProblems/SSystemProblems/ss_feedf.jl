@@ -54,7 +54,7 @@ function generate_ss_feedf_data(;
     return t, X, input_values
 end
 
-function generate_ss_feedf_experiments(; problem="ss_feedf1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_feedf_experiments(; problem="ss_feedf1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
 
@@ -70,12 +70,13 @@ function generate_ss_feedf_experiments(; problem="ss_feedf1", noise_std::Union{F
         X0 = X_ss .* (1.0 .+ 0.5 * (2.0 * rand(4) .- 1.0))
         X0 = max.(X0, 0.01)
 
+        _n_points = n_points !== nothing ? n_points : 51
         t, X, input_values = generate_ss_feedf_data(
             In1_const=in1,
             In2_const=in2,
             X0=X0,
             tspan=(0.0, 5.0),
-            n_points=51,
+            n_points=_n_points,
             noise_std=noise_std
         )
 

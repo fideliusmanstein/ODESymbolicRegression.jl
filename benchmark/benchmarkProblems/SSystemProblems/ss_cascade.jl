@@ -63,7 +63,7 @@ function generate_ss_cascade_data(;
     return t, X, input_values
 end
 
-function generate_ss_cascade_experiments(; problem="ss_cascade1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_cascade_experiments(; problem="ss_cascade1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     if problem == "ss_cascade1"
         n_exp = 8
         noise_std = noise_std !== nothing ? noise_std : 0.0
@@ -84,11 +84,12 @@ function generate_ss_cascade_experiments(; problem="ss_cascade1", noise_std::Uni
         X0 = 1.0 .+ 0.5 * randn(3)
         X0 = max.(X0, 0.1)
         
+        _n_points = n_points !== nothing ? n_points : 41
         t, X, input_values = generate_ss_cascade_data(
             X4_const=5.0,
             X0=X0,
             tspan=(0.0, 10.0),
-            n_points=41,
+            n_points=_n_points,
             noise_std=noise_std
         )
         

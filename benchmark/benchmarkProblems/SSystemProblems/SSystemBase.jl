@@ -113,11 +113,18 @@ function generate_ssystem_data(
     
     # Solve ODE
     t_eval = range(tspan[1], tspan[2], length=n_points)
-    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval)
+    sol = solve(prob, AutoTsit5(Rosenbrock23()), saveat=t_eval, maxiters=10^6)
     
-    # Extract solution
-    t = sol.t
-    X = hcat(sol.u...)'
+    # Extract solution — always returns exactly n_points rows even if the solver terminates early
+    t = collect(t_eval)
+    n_got = length(sol.u)
+    X = if n_got == n_points
+        hcat(sol.u...)'
+    else
+        Xfill = fill(NaN, n_points, length(X0))
+        for i in 1:n_got; Xfill[i, :] = sol.u[i]; end
+        Xfill
+    end
     
     # Add noise if requested
     if noise_std > 0.0

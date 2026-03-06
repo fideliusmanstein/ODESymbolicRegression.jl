@@ -49,7 +49,7 @@ function generate_ss_bifeedb_data(;
     return t, X, input_values
 end
 
-function generate_ss_bifeedb_experiments(; problem="ss_bifeedb1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_bifeedb_experiments(; problem="ss_bifeedb1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     
@@ -59,10 +59,11 @@ function generate_ss_bifeedb_experiments(; problem="ss_bifeedb1", noise_std::Uni
         X0 = X_ss .* (1.0 .+ 0.75 * (2.0 * rand(5) .- 1.0))
         X0 = max.(X0, 0.01)
         
+        _n_points = n_points !== nothing ? n_points : 51
         t, X, _ = generate_ss_bifeedb_data(
             X0=X0,
             tspan=(0.0, 5.0),
-            n_points=51,
+            n_points=_n_points,
             noise_std=noise_std
         )
         

@@ -60,7 +60,7 @@ function generate_ss_branch_data(;
     return t, X, input_values
 end
 
-function generate_ss_branch_experiments(; problem="ss_branch1", noise_std::Union{Float64,Nothing}=nothing)
+function generate_ss_branch_experiments(; problem="ss_branch1", noise_std::Union{Float64,Nothing}=nothing, n_points::Union{Int,Nothing}=nothing)
     # Problem-specific parameters
     params = Dict(
         "ss_branch1" => (n_exp=3, n_points=21, noise_std=0.0),
@@ -77,6 +77,7 @@ function generate_ss_branch_experiments(; problem="ss_branch1", noise_std::Union
     
     p = params[problem]
     _noise = noise_std !== nothing ? noise_std : p.noise_std
+    _n_points = n_points !== nothing ? n_points : p.n_points
     experiments = []
     
     for exp in 1:p.n_exp
@@ -86,7 +87,7 @@ function generate_ss_branch_experiments(; problem="ss_branch1", noise_std::Union
         t, X, input_values = generate_ss_branch_data(
             X0=X0,
             tspan=(0.0, 10.0),
-            n_points=p.n_points,
+            n_points=_n_points,
             noise_std=_noise
         )
         
