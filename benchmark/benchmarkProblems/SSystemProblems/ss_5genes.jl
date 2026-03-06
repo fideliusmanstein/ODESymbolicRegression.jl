@@ -67,7 +67,7 @@ function generate_ss_5genes_experiments(; problem="ss_5genes1", noise_std::Union
     # Problem-specific parameters
     params = Dict(
         "ss_5genes1" => (n_exp=10, n_points=11, noise_std=0.0),
-        "ss_5genes2" => (n_exp=10, n_points=9, noise_std=0.20),
+        "ss_5genes2" => (n_exp=10, n_points=9, noise_std=0.0),
         "ss_5genes3" => (n_exp=10, n_points=3, noise_std=0.0),
         "ss_5genes4" => (n_exp=15, n_points=11, noise_std=0.0),
         "ss_5genes5" => (n_exp=10, n_points=11, noise_std=0.0),

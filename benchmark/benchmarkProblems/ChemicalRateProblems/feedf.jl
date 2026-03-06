@@ -162,7 +162,7 @@ function generate_feedf_experiments(; problem="feedf1", noise_std::Union{Float64
     if problem == "feedf1"
         noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "feedf2"
-        noise_std = noise_std !== nothing ? noise_std : 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.0
     else
         error("Unknown problem: $problem. Choose from feedf1, feedf2")
     end

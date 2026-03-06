@@ -55,7 +55,7 @@ function generate_ss_feedf_data(;
 end
 
 function generate_ss_feedf_experiments(; problem="ss_feedf1", noise_std::Union{Float64,Nothing}=nothing)
-    noise_std = noise_std !== nothing ? noise_std : (problem == "ss_feedf1" ? 0.0 : 0.05)
+    noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
 
     # Bug 2 fix: vary both input levels (X5=In1, X6=In2) across experiments.

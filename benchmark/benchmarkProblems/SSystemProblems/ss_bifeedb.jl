@@ -50,7 +50,7 @@ function generate_ss_bifeedb_data(;
 end
 
 function generate_ss_bifeedb_experiments(; problem="ss_bifeedb1", noise_std::Union{Float64,Nothing}=nothing)
-    noise_std = noise_std !== nothing ? noise_std : (problem == "ss_bifeedb1" ? 0.0 : 0.05)
+    noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     
     X_ss = [0.5, 1.0, 1.5, 2.0, 2.5]

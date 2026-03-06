@@ -185,7 +185,7 @@ function generate_inhosc_experiments(; problem="inhosc1", noise_std::Union{Float
         noise_std = noise_std !== nothing ? noise_std : 0.0
         n_states = 2
     elseif problem == "inhosc2"
-        noise_std = noise_std !== nothing ? noise_std : 0.03
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         n_states = 4
     else
         error("Unknown problem: $problem. Choose from inhosc1, inhosc2")

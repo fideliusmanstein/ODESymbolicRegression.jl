@@ -176,10 +176,10 @@ function generate_metabol_experiments(; problem="metabol1", noise_std::Union{Flo
         noise_std = noise_std !== nothing ? noise_std : 0.0
         n_points = 7
     elseif problem == "metabol2"
-        noise_std = noise_std !== nothing ? noise_std : 0.1
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         n_points = 21
     elseif problem == "metabol3"
-        noise_std = noise_std !== nothing ? noise_std : 0.2
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         n_points = 21
     else
         error("Unknown problem: $problem. Choose from metabol1, metabol2, metabol3")

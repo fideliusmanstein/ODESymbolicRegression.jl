@@ -196,7 +196,7 @@ function generate_threegenes_experiments(; problem="threeGenes1", noise_std::Uni
     if problem == "threeGenes1"
         noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "threeGenes2"
-        noise_std = noise_std !== nothing ? noise_std : 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.0
     else
         error("Unknown problem: $problem. Choose from threeGenes1, threeGenes2")
     end

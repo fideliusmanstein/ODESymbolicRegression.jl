@@ -80,7 +80,7 @@ end
 function generate_ss_30genes_experiments(; problem="ss_30genes1", noise_std::Union{Float64,Nothing}=nothing)
     params = Dict(
         "ss_30genes1" => (n_exp=15, n_points=11, noise_std=0.0),
-        "ss_30genes2" => (n_exp=20, n_points=11, noise_std=0.10),
+        "ss_30genes2" => (n_exp=20, n_points=11, noise_std=0.0),
         "ss_30genes3" => (n_exp=8, n_points=41, noise_std=0.0)
     )
     

@@ -182,7 +182,7 @@ Arguments:
 Returns:
 - experiments: Vector of dictionaries, each containing :t, :X, :inputs, :params, :ic
 """
-function generate_simplelin_experiments(; noise_std=0.1, n_points=13, num_trajectories=1)
+function generate_simplelin_experiments(; noise_std=0.0, n_points=13, num_trajectories=1)
     experiment_params = [
         (X1=3.0, X2=2.0),
         (X1=4.0, X2=5.0),

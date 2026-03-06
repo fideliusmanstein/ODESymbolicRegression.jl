@@ -75,7 +75,10 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 )
 
 # Multi-trajectory configuration for robust evaluation
-const NUM_TRAJECTORIES = 5  # Use 3 different ICs per experiment for validation
+# NUM_TRAJECTORIES is the exact number of experiment trajectories passed to the solver.
+# Predefined experiments from the problem definition are used first (up to NUM_TRAJECTORIES);
+# if the problem has fewer, the remainder are filled with perturbed copies of existing ICs.
+const NUM_TRAJECTORIES = 5
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
@@ -125,6 +128,56 @@ function get_test_problems()
         testable_problems = testable_problems[1:MAX_PROBLEMS_TO_TEST]
     end
     
+    return (
+        all = all_problems_full,
+        testable = testable_problems,
+        excluded = TIMEOUT_PROBLEMS
+    )
+end
+
+"""
+    get_nonredundant_problems()
+
+Automatically selects one representative problem per (family, n_states) group,
+choosing the variant with the most pre-defined experiments.
+
+Rationale:
+- Problems in the same family with the same n_states differ only in data quantity
+  or noise level. Since NOISE_STD overrides noise and NUM_TRAJECTORIES controls
+  the exact number of trajectories used, the variant with the most pre-defined
+  experiments gives the best real data coverage before perturbed copies are needed.
+- Structurally distinct variants (different n_states within the same family, e.g.
+  inhosc1=2 states vs inhosc2=4 states) are always both kept.
+- TIMEOUT_PROBLEMS are excluded before selection.
+"""
+function get_nonredundant_problems()
+    all_problems_dict = BenchmarkSystems.list_problems()
+    all_problems_full = sort(collect(keys(all_problems_dict)))
+
+    # Exclude timeout problems before selection
+    candidates = filter(p -> !(p in TIMEOUT_PROBLEMS), all_problems_full)
+
+    # Extract the family prefix by stripping the trailing digit(s)
+    family_prefix(name) = match(r"^(.*?)\d+$", name)[1]
+
+    # Group by (family_prefix, n_states): same prefix + same n_states = redundant variants
+    groups = Dict{Tuple{String,Int}, Vector{String}}()
+    for p in candidates
+        prefix = family_prefix(p)
+        n_states = all_problems_dict[p][:states]
+        key = (prefix, n_states)
+        push!(get!(groups, key, String[]), p)
+    end
+
+    # Within each group pick the variant with the most pre-defined experiments
+    selected = String[]
+    for (_, probs) in groups
+        best = argmax(p -> all_problems_dict[p][:experiments], probs)
+        push!(selected, best)
+    end
+
+    testable_problems = sort(selected)
+
     return (
         all = all_problems_full,
         testable = testable_problems,

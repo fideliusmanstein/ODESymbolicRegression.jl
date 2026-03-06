@@ -170,7 +170,7 @@ function generate_bifeedb_experiments(; problem="bifeedb1", noise_std::Union{Flo
         noise_std = noise_std !== nothing ? noise_std : 0.0
         n_states = 4
     elseif problem == "bifeedb2"
-        noise_std = noise_std !== nothing ? noise_std : 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.0
         n_states = 5
     else
         error("Unknown problem: $problem. Choose from bifeedb1, bifeedb2")

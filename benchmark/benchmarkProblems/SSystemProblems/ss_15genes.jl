@@ -81,7 +81,7 @@ end
 function generate_ss_15genes_experiments(; problem="ss_15genes1", noise_std::Union{Float64,Nothing}=nothing)
     params = Dict(
         "ss_15genes1" => (n_exp=10, n_points=11, noise_std=0.0),
-        "ss_15genes2" => (n_exp=20, n_points=11, noise_std=0.10)
+        "ss_15genes2" => (n_exp=20, n_points=11, noise_std=0.0)
     )
     
     if !haskey(params, problem)

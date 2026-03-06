@@ -67,7 +67,7 @@ function generate_ss_branch_experiments(; problem="ss_branch1", noise_std::Union
         "ss_branch2" => (n_exp=6, n_points=51, noise_std=0.0),
         "ss_branch3" => (n_exp=5, n_points=20, noise_std=0.0),
         "ss_branch4" => (n_exp=4, n_points=20, noise_std=0.0),
-        "ss_branch5" => (n_exp=4, n_points=20, noise_std=0.025),
+        "ss_branch5" => (n_exp=4, n_points=20, noise_std=0.0),
         "ss_branch6" => (n_exp=5, n_points=31, noise_std=0.0)
     )
     

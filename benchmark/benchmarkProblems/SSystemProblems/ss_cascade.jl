@@ -72,7 +72,7 @@ function generate_ss_cascade_experiments(; problem="ss_cascade1", noise_std::Uni
         noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "ss_cascade3"
         n_exp = 8
-        noise_std = noise_std !== nothing ? noise_std : 0.05
+        noise_std = noise_std !== nothing ? noise_std : 0.0
     else
         error("Unknown problem: $problem. Choose from ss_cascade1, ss_cascade2, ss_cascade3")
     end

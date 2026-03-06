@@ -42,7 +42,7 @@ function generate_gma_feedf_data(; In1_const=1.0, In2_const=1.0, X0=[0.5, 0.5, 1
 end
 
 function generate_gma_feedf_experiments(; problem="gma_feedf1", noise_std::Union{Float64,Nothing}=nothing)
-    noise_std = noise_std !== nothing ? noise_std : (problem == "gma_feedf1" ? 0.0 : 0.05)
+    noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     # Bug 2 fix: vary both input levels (X5=In1, X6=In2) across experiments (4×4 grid).
     in1_vals = [0.5, 1.0, 1.5, 2.0]
@@ -100,7 +100,7 @@ function generate_gma_inhosc_data(; In_const=1.0, Out_const=1.0, X0=ones(4),
 end
 
 function generate_gma_inhosc_experiments(; problem="gma_inhosc1", noise_std::Union{Float64,Nothing}=nothing)
-    noise_std = noise_std !== nothing ? noise_std : (problem == "gma_inhosc1" ? 0.0 : 0.05)
+    noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     input_combinations = [(In=0.8, Out=0.8), (In=1.0, Out=1.0), (In=1.2, Out=1.0), (In=1.0, Out=1.2)]
     for (exp, combo) in enumerate(input_combinations)
@@ -152,7 +152,7 @@ function generate_gma_bifeedb_data(; X0=ones(5), tspan=(0.0, 5.0), n_points=51, 
 end
 
 function generate_gma_bifeedb_experiments(; problem="gma_bifeedb1", noise_std::Union{Float64,Nothing}=nothing)
-    noise_std = noise_std !== nothing ? noise_std : (problem == "gma_bifeedb1" ? 0.0 : 0.05)
+    noise_std = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     X_ss = [0.5, 1.0, 1.5, 2.0, 2.5]
     for exp in 1:16

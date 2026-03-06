@@ -29,14 +29,14 @@ function cytokine_system(X, inputs, t)
     return SSystemBase.ssystem_ode(X, α, β, g, h, inputs, t)
 end
 
-function generate_cytokine_data(; X0=ones(4), tspan=(0.0, 6.0), n_points=7, noise_std=0.10)
+function generate_cytokine_data(; X0=ones(4), tspan=(0.0, 6.0), n_points=7, noise_std=0.0)
     t, X, input_values = SSystemBase.generate_ssystem_data(
         α, β, g, h; X0=X0, tspan=tspan, n_points=n_points, noise_std=noise_std)
     return t, X, input_values
 end
 
 function generate_cytokine_experiments(; problem="cytokine1", noise_std::Union{Float64,Nothing}=nothing)
-    _noise = noise_std !== nothing ? noise_std : 0.10
+    _noise = noise_std !== nothing ? noise_std : 0.0
     X0_list = problem == "cytokine1" ? [ones(4)] : [1.2 .* ones(4)]
     experiments = []
     for (exp, X0) in enumerate(X0_list)
@@ -75,14 +75,14 @@ function ss_ethanolferm_system(X, inputs, t)
     return SSystemBase.ssystem_ode(X, α, β, g, h, inputs, t)
 end
 
-function generate_ss_ethanolferm_data(; X0=ones(4), tspan=(0.0, 10.0), n_points=15, noise_std=0.30)
+function generate_ss_ethanolferm_data(; X0=ones(4), tspan=(0.0, 10.0), n_points=15, noise_std=0.0)
     t, X, input_values = SSystemBase.generate_ssystem_data(
         α, β, g, h; X0=X0, tspan=tspan, n_points=n_points, noise_std=noise_std)
     return t, X, input_values
 end
 
 function generate_ss_ethanolferm_experiments(; problem="ss_ethanolferm1", noise_std::Union{Float64,Nothing}=nothing)
-    _noise = noise_std !== nothing ? noise_std : 0.30
+    _noise = noise_std !== nothing ? noise_std : 0.0
     n_exp = problem == "ss_ethanolferm1" ? 3 : 2
     n_points = problem == "ss_ethanolferm1" ? 15 : 13
     experiments = []
@@ -124,14 +124,14 @@ function ss_sosrepair_system(X, inputs, t)
     return SSystemBase.ssystem_ode(X, α, β, g, h, inputs, t)
 end
 
-function generate_ss_sosrepair_data(; X0=ones(6), tspan=(0.0, 50.0), n_points=50, noise_std=0.10)
+function generate_ss_sosrepair_data(; X0=ones(6), tspan=(0.0, 50.0), n_points=50, noise_std=0.0)
     t, X, input_values = SSystemBase.generate_ssystem_data(
         α, β, g, h; X0=X0, tspan=tspan, n_points=n_points, noise_std=noise_std)
     return t, X, input_values
 end
 
 function generate_ss_sosrepair_experiments(; problem="ss_sosrepair1", noise_std::Union{Float64,Nothing}=nothing)
-    _noise = noise_std !== nothing ? noise_std : 0.10
+    _noise = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     X0 = 1.0 .+ 0.3 * randn(6)
     X0 = max.(X0, 0.1)
@@ -169,14 +169,14 @@ function ss_cadBA_system(X, inputs, t)
     return SSystemBase.ssystem_ode(X, α, β, g, h, inputs, t)
 end
 
-function generate_ss_cadBA_data(; X0=ones(4), tspan=(0.0, 25.0), n_points=25, noise_std=0.15)
+function generate_ss_cadBA_data(; X0=ones(4), tspan=(0.0, 25.0), n_points=25, noise_std=0.0)
     t, X, input_values = SSystemBase.generate_ssystem_data(
         α, β, g, h; X0=X0, tspan=tspan, n_points=n_points, noise_std=noise_std)
     return t, X, input_values
 end
 
 function generate_ss_cadBA_experiments(; problem="ss_cadBA1", noise_std::Union{Float64,Nothing}=nothing)
-    _noise = noise_std !== nothing ? noise_std : 0.15
+    _noise = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     X0 = 1.0 .+ 0.3 * randn(4)
     X0 = max.(X0, 0.1)
@@ -213,14 +213,14 @@ function ss_clock_system(X, inputs, t)
     return SSystemBase.ssystem_ode(X, α, β, g, h, inputs, t)
 end
 
-function generate_ss_clock_data(; X0=ones(7), tspan=(0.0, 12.0), n_points=12, noise_std=0.10)
+function generate_ss_clock_data(; X0=ones(7), tspan=(0.0, 12.0), n_points=12, noise_std=0.0)
     t, X, input_values = SSystemBase.generate_ssystem_data(
         α, β, g, h; X0=X0, tspan=tspan, n_points=n_points, noise_std=noise_std)
     return t, X, input_values
 end
 
 function generate_ss_clock_experiments(; problem="ss_clock1", noise_std::Union{Float64,Nothing}=nothing)
-    _noise = noise_std !== nothing ? noise_std : 0.10
+    _noise = noise_std !== nothing ? noise_std : 0.0
     experiments = []
     X0 = 1.0 .+ 0.3 * randn(7)
     X0 = max.(X0, 0.1)

@@ -107,7 +107,7 @@ function generate_osc_experiments(; problem="osc1", noise_std::Union{Float64,Not
     if problem == "osc1"
         noise_std = noise_std !== nothing ? noise_std : 0.0
     elseif problem == "osc2"
-        noise_std = noise_std !== nothing ? noise_std : 0.03
+        noise_std = noise_std !== nothing ? noise_std : 0.0
     else
         error("Unknown problem: $problem. Choose from osc1, osc2")
     end

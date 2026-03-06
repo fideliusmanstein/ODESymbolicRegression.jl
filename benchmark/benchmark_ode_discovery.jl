@@ -400,7 +400,7 @@ function benchmark_single_problem(problem_name;
     println("\n" * "="^80)
     println("Benchmarking: $problem_name")
     if num_trajectories > 1
-        println("Multi-trajectory mode: $num_trajectories ICs per experiment")
+        println("Multi-trajectory mode: $num_trajectories total experiments (predefined first, perturbed to fill)")
     end
     if noise_std > 0.0
         println("Noise level: $noise_std")
