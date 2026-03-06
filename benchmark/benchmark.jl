@@ -161,6 +161,16 @@ function get_nonredundant_problems()
     all_problems_dict = BenchmarkSystems.list_problems()
     all_problems_full = sort(collect(keys(all_problems_dict)))
 
+    # If PROBLEMS_OVERRIDE is set, run only those problems
+    if PROBLEMS_OVERRIDE !== nothing
+        testable_problems = filter(p -> p in PROBLEMS_OVERRIDE, all_problems_full)
+        return (
+            all = all_problems_full,
+            testable = testable_problems,
+            excluded = TIMEOUT_PROBLEMS
+        )
+    end
+
     # Exclude timeout problems before selection
     candidates = filter(p -> !(p in TIMEOUT_PROBLEMS), all_problems_full)
 

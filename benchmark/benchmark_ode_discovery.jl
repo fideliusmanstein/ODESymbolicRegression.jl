@@ -446,10 +446,12 @@ function benchmark_single_problem(problem_name;
             binary_operators=ode_options.binary_operators,
             unary_operators=ode_options.unary_operators
         )
-        discovered_equations = [normalize_equation(tree, sr_options) for tree in result.best_trees]
+        discovered_equations = result.best_trees !== nothing ?
+            [normalize_equation(tree, sr_options) for tree in result.best_trees] : String[]
         
         # Extract initial equations (before integration refinement)
-        initial_equations = [normalize_equation(tree, sr_options) for tree in result.initial_trees]
+        initial_equations = result.initial_trees !== nothing ?
+            [normalize_equation(tree, sr_options) for tree in result.initial_trees] : String[]
         
         # Get ground truth equations and normalize them
         ground_truth_equations_raw = get_ground_truth_equations(problem_name)
@@ -458,7 +460,8 @@ function benchmark_single_problem(problem_name;
         # Compute equation similarity scores
         equation_scores = []
         
-        for i in 1:min(length(result.best_trees), length(ground_truth_equations_raw))
+        n_best = result.best_trees !== nothing ? length(result.best_trees) : 0
+        for i in 1:min(n_best, length(ground_truth_equations_raw))
             try
                 # Parse ground truth equation string
                 gt_eq_str = ground_truth_equations_raw[i]
@@ -500,6 +503,9 @@ function benchmark_single_problem(problem_name;
                 # Use the range [min * 0.5, max * 1.5] from experiment data, floored at 1e-3
                 # This ensures test points are representative of the real system dynamics.
                 X_all = vcat([exp[:X] for exp in experiments]...)  # (total_pts, n_states)
+                # Strip NaN rows (from early-terminated ODE trajectories)
+                valid_rows = findall(i -> !any(isnan, X_all[i, :]), 1:size(X_all, 1))
+                X_all = isempty(valid_rows) ? X_all : X_all[valid_rows, :]
                 x_mins = vec(minimum(X_all, dims=1))
                 x_maxs = vec(maximum(X_all, dims=1))
                 # For input features (if any), use [0.1, 5.0]

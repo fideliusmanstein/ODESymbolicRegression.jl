@@ -37,10 +37,27 @@ struct IntegrationLoss
                     error("Trajectory must have :X or :X_observed key")
                 end
                 # Ensure it's a Matrix
-                normalized[:X_observed] = X_raw isa Matrix ? X_raw : Matrix(X_raw)
+                X_mat = X_raw isa Matrix ? X_raw : Matrix(X_raw)
+
+                # ── Strip NaN rows from early-terminated ODE trajectories ──
+                t_vec = normalized[:t]
+                valid = findall(i -> !any(isnan, X_mat[i, :]), 1:size(X_mat, 1))
+                if length(valid) < size(X_mat, 1)
+                    X_mat  = X_mat[valid, :]
+                    t_vec  = t_vec[valid]
+                    # Also trim stored inputs
+                    inputs_raw = get(traj, :inputs, Dict())
+                    trimmed_inputs = Dict(k => (v isa AbstractVector ? v[valid] : v)
+                                         for (k, v) in inputs_raw)
+                    normalized[:t]      = t_vec
+                    normalized[:inputs] = trimmed_inputs
+                end
+                normalized[:X_observed] = X_mat
                 
-                # Inputs (optional)
-                normalized[:inputs] = get(traj, :inputs, Dict())
+                # Inputs (optional) — only set if not already set by NaN-strip block above
+                if !haskey(normalized, :inputs)
+                    normalized[:inputs] = get(traj, :inputs, Dict())
+                end
                 
                 push!(dict_trajectories, normalized)
             else

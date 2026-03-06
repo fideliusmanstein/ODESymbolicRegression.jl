@@ -113,6 +113,20 @@ function aggregate_features_and_derivatives(experiments::Vector, ode_options::OD
         # Ensure X is a Matrix (not Adjoint or other type)
         X = X_raw isa Matrix ? X_raw : Matrix(X_raw)
         inputs = get(exp, :inputs, Dict())
+
+        # ── Drop any time-point rows that contain NaN (ODE early-termination fill) ──
+        valid_rows = findall(i -> !any(isnan, X[i, :]), 1:size(X, 1))
+        if length(valid_rows) < size(X, 1)
+            X = X[valid_rows, :]
+            t = t[valid_rows]
+            # Also slice input vectors if they are stored as vectors
+            inputs = Dict(k => (v isa AbstractVector ? v[valid_rows] : v) for (k, v) in inputs)
+        end
+
+        # Need at least 3 points to compute derivatives
+        if length(t) < 3
+            continue
+        end
         
         # Compute numerical derivatives for this trajectory
         dX = compute_numerical_derivatives(t, X;

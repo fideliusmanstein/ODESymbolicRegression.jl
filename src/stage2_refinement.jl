@@ -218,12 +218,15 @@ end
 Refine each equation iteratively using real measured data and integration loss evaluation.
 """
 function iteratively_refine_equations(
-    initial_trees::Vector,
+    initial_trees::Union{Vector, Nothing},
     experiments::Vector,
     ode_options::ODERegressionOptions,
     loss_config::IntegrationLoss,
     verbose::Bool
 )
+    if initial_trees === nothing
+        return nothing, Inf
+    end
     best_trees = copy(initial_trees)
     best_loss = evaluate_ode_system(best_trees, loss_config)
     n_states = length(best_trees)
@@ -300,7 +303,7 @@ function refine_with_integration(
     end
     
     # Iteratively refine equations if requested
-    if ode_options.niterations_integration > 0
+    if ode_options.niterations_integration > 0 && initial_trees !== nothing
         if verbose
             println("\nRefining equations with real measured data...")
         end
@@ -321,8 +324,12 @@ function refine_with_integration(
     if verbose
         println("\n" * "="^80)
         println("Best ODE System:")
-        for (i, tree) in enumerate(best_trees)
-            println("  dx$i/dt = ", normalize_equation_internal(tree, sr_options))
+        if best_trees !== nothing
+            for (i, tree) in enumerate(best_trees)
+                println("  dx$i/dt = ", normalize_equation_internal(tree, sr_options))
+            end
+        else
+            println("  ⚠ No valid equations found (all combinations had infinite integration loss)")
         end
         println("Integration loss: ", round(best_loss, sigdigits=4))
         println("="^80)

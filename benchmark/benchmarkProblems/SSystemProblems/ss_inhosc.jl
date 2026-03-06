@@ -94,7 +94,7 @@ function get_equation_strings(problem::String)
         error("Problem $problem is not a ss_inhosc problem")
     end
     
-    return SSystemBase.format_ssystem_equations(α, β, g_mat, h_mat, 4, Dict(5 => "In", 6 => "Out"))
+    return SSystemBase.format_ssystem_equations(α, β, g_mat, h_mat, 4, Dict(5 => "X5", 6 => "X6"))
 end
 
 end # module

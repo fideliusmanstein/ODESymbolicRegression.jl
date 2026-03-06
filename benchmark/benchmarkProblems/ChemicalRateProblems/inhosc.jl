@@ -19,18 +19,23 @@ export inhosc_system, generate_inhosc_data, generate_inhosc_experiments
 Return the ground truth equation strings for the inhosc problem.
 """
 function get_equation_strings(problem)
-    # inhosc1 is 2-state, inhosc2 is 4-state
+    # All k-values = 1.0.
+    # Inputs are stored as features after the states, sorted alphabetically:
+    #   In  → x{n_states+1}
+    #   Out → x{n_states+2}
     if problem == "inhosc1"
+        # 2 states → In=x3, Out=x4
         return [
-            "X1' = In - k1/(X2+k2)",
-            "X2' = k3/(X1+k4) - Out"
+            "X1' = x3 - 1.0/(X2+1.0)",
+            "X2' = 1.0/(X1+1.0) - x4"
         ]
     elseif problem == "inhosc2"
+        # 4 states → In=x5, Out=x6
         return [
-            "X1' = In - k1/(X4+k2)",
-            "X2' = k3/(X1+k4) - k5/(X3+k6)",
-            "X3' = k7/(X2+k8) - k9/(X4+k10)",
-            "X4' = k11/(X3+k12) - Out"
+            "X1' = x5 - 1.0/(X4+1.0)",
+            "X2' = 1.0/(X1+1.0) - 1.0/(X3+1.0)",
+            "X3' = 1.0/(X2+1.0) - 1.0/(X4+1.0)",
+            "X4' = 1.0/(X3+1.0) - x6"
         ]
     else
         return ["Unknown problem: $problem"]
