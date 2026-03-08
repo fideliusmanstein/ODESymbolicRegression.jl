@@ -92,6 +92,8 @@ const TIMEOUT_PROBLEMS = [
     "ss_30genes1",   # 30 states, 8-20 experiments, up to 41 time points
     "ss_30genes2",
     "ss_30genes3",
+    "ss_clock1",
+    "ss_clock2"
     # "ss_cascade3",  # TODO: this problem gets stuck on the server. Figure out why
     # "ss_5genes8",
     # "ss_5genes6", # these two take really long
