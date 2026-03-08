@@ -355,6 +355,15 @@ end
 @testset "ODE Discovery - All Benchmark Systems" begin
     for problem_name in problems.testable
         @testset "$problem_name" begin
+            # Write start marker immediately so the file shows which problem is running
+            open(results_file, "a") do f
+                println(f, "")
+                println(f, "="^80)
+                println(f, "STARTED: $problem_name  [$(Dates.format(now(), "yyyy-mm-dd HH:MM:SS"))]")
+                println(f, "="^80)
+                flush(f)
+            end
+
             # Run test with timeout protection
             completed, result = run_with_timeout(
                 problem_name,
