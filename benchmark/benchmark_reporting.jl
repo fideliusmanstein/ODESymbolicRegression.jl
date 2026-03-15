@@ -63,11 +63,11 @@ function write_equation_scores(io::IO, equation_scores::Vector; indent="  ", sho
 end
 
 """
-    print_test_header(problems, test_options, num_trajectories, noise_std, max_problems, timeout_seconds)
+    print_test_header(problems, test_options, num_trajectories, noise_std, max_problems, timeout_seconds, n_points=nothing, problems_override=nothing)
 
 Print the benchmark test suite header with configuration information.
 """
-function print_test_header(problems, test_options, num_trajectories, noise_std, max_problems, timeout_seconds)
+function print_test_header(problems, test_options, num_trajectories, noise_std, max_problems, timeout_seconds, n_points=nothing, problems_override=nothing)
     println("="^80)
     println("ODE Discovery Benchmark Test Suite - Multi-Trajectory")
     println("="^80)
@@ -87,8 +87,12 @@ function print_test_header(problems, test_options, num_trajectories, noise_std, 
     println("  - Unary operators: $unary_ops_str")
     println("  - Trajectories per experiment: $num_trajectories")
     println("  - Noise level: $noise_std")
+    n_points_msg = n_points === nothing ? "problem default" : string(n_points)
+    println("  - Time points per trajectory: $n_points_msg")
     timeout_msg = timeout_seconds === nothing ? "none (no timeout)" : "$(timeout_seconds)s"
     println("  - Timeout per system: $timeout_msg")
+    override_msg = problems_override === nothing ? "none" : join(problems_override, ", ")
+    println("  - Problems override: $override_msg")
     println("="^80)
     println()
 end
@@ -270,11 +274,11 @@ function print_final_summary(results_summary, results_file)
 end
 
 """
-    write_file_header(file, num_trajectories, noise_std)
+    write_file_header(file, test_options, num_trajectories, noise_std, max_problems, timeout_seconds, timeout_problems, n_points=nothing, problems_override=nothing)
 
 Write header to results file.
 """
-function write_file_header(file, test_options, num_trajectories, noise_std, max_problems, timeout_seconds, timeout_problems)
+function write_file_header(file, test_options, num_trajectories, noise_std, max_problems, timeout_seconds, timeout_problems, n_points=nothing, problems_override=nothing)
     println(file, "="^80)
     println(file, "ODE Discovery Benchmark Test Results")
     println(file, "Num trajectories: $num_trajectories")
@@ -304,10 +308,14 @@ function write_file_header(file, test_options, num_trajectories, noise_std, max_
     println(file, "  - unary_operators: $unary_ops_str")
     println(file, "  - parallelism: $(test_options.parallelism)")
     println(file, "  - verbose: $(test_options.verbose)")
+    n_points_msg = n_points === nothing ? "problem default" : string(n_points)
+    println(file, "  - n_points: $n_points_msg")
     timeout_msg = timeout_seconds === nothing ? "none (no timeout)" : "$(timeout_seconds)s"
     println(file, "  - timeout_seconds: $timeout_msg")
     max_msg = max_problems === nothing ? "none (all problems)" : string(max_problems)
     println(file, "  - max_problems_to_test: $max_msg")
+    override_msg = problems_override === nothing ? "none" : join(problems_override, ", ")
+    println(file, "  - problems_override: $override_msg")
     println(file, "  - timeout_problems: ")
     for p in timeout_problems
         println(file, "      - $p")
