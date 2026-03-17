@@ -80,7 +80,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 # if the problem has fewer, the remainder are filled with perturbed copies of existing ICs.
 const NUM_TRAJECTORIES = 5
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const N_POINTS = 251  # Time points per trajectory (nothing = use each problem's default)
+const N_POINTS = 501  # Time points per trajectory (nothing = use each problem's default)
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
