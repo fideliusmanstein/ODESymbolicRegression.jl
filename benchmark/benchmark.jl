@@ -74,7 +74,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     complexity_derivative = 25,
     complexity_integration = 25,
     binary_operators = (+, *, -, /, powc),
-    unary_operators = (square, inv, sqrtp),
+    unary_operators = (), # (square, inv, sqrtp),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
 )
