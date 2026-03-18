@@ -46,29 +46,34 @@ Logging.disable_logging(Logging.Warn)
 # =============================================================================
 
 # Custom operators
-square(x) = x * x
-inv(x) = 1 / x
-sqrtp(x::T) where {T} = x > 0 ? sqrt(x) : T(NaN)
-# function safe_exponential(x, y)
-#     val = try
-#         x ^ y
-#     catch
-#         return NaN
-#     end
-#     # Only return if real and finite, else NaN
-#     if !isreal(val) || !isfinite(val)
-#         return NaN
-#     end
-#     return real(val)
-# end
+# square(x) = x * x
+# inv(x) = 1 / x
+# sqrtp(x::T) where {T} = x > 0 ? sqrt(x) : T(NaN)
+
+# Single protected power operator: powc(x, c)
+# Accepts any finite exponent c.
+@inline function powc(x::Real, c::Real)
+    xf = Float64(x)
+    cf = Float64(c)
+    if !isfinite(xf) || !isfinite(cf)
+        return NaN
+    end
+
+    if xf < 0.0 || (xf == 0.0 && cf < 0.0)
+        return NaN
+    end
+
+    y = exp(cf * log(xf))
+    return isfinite(y) ? y : NaN
+end
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative = 150,  # Use 3 for testing; 100 for production
-    niterations_integration = 0,  # Use 3 for testing; 20 for production
-    complexity_derivative = 15,
-    complexity_integration = 15,
-    binary_operators = (+, *, -, /),
+    niterations_derivative = 250,
+    niterations_integration = 0,
+    complexity_derivative = 25,
+    complexity_integration = 25,
+    binary_operators = (+, *, -, /, powc),
     unary_operators = (square, inv, sqrtp),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
@@ -80,7 +85,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 # if the problem has fewer, the remainder are filled with perturbed copies of existing ICs.
 const NUM_TRAJECTORIES = 5
 const NOISE_STD = 0.0  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const N_POINTS = 501  # Time points per trajectory (nothing = use each problem's default)
+const N_POINTS = 251  # Time points per trajectory (nothing = use each problem's default)
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
