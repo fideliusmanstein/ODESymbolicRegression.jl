@@ -25,11 +25,24 @@ using DifferentialEquations
 using SymbolicRegression
 using Interpolations
 using Logging
-using DataInterpolations
-using RegularizationTools
 using SavitzkyGolay
 using SymbolicUtils
 using Symbolics
+
+# Optional dependencies for alternative differentiation backends.
+const HAS_DATAINTERPOLATIONS = try
+	@eval import DataInterpolations
+	true
+catch
+	false
+end
+
+const HAS_REGULARIZATIONTOOLS = try
+	@eval import RegularizationTools
+	true
+catch
+	false
+end
 
 # Include submodules in dependency order
 include("helpers.jl")

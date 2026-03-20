@@ -84,10 +84,23 @@ function compute_numerical_derivatives(t::Vector, X::Matrix;
             h = Float64(t[2] - t[1])  # Assume uniform spacing
             deriv_raw = savitzky_golay(X[:, i], window, poly_order, deriv=1)
             dX[:, i] = deriv_raw.y ./ h
+        elseif method == :tikhonov
+            # Backward-compatible alias to the RegularizationTools backend.
+            if !isdefined(@__MODULE__, :RegularizationTools)
+                error("differentiation_method=:tikhonov requires RegularizationTools, which is not available in this environment. Run Pkg.instantiate() or switch to :finite_difference/:savitzky_golay.")
+            end
+            x_smooth = tikhonov_smooth_regularizationtools_1d(X[:, i], Float64(tikhonov_lambda))
+            dX[:, i] = finite_difference_1d(t, x_smooth)
         elseif method == :tikhonov_regularizationtools
+            if !isdefined(@__MODULE__, :RegularizationTools)
+                error("differentiation_method=:tikhonov_regularizationtools requires RegularizationTools, which is not available in this environment. Run Pkg.instantiate() or switch to :finite_difference/:savitzky_golay.")
+            end
             x_smooth = tikhonov_smooth_regularizationtools_1d(X[:, i], Float64(tikhonov_lambda))
             dX[:, i] = finite_difference_1d(t, x_smooth)
         elseif method == :tikhonov_datainterpolations
+            if !isdefined(@__MODULE__, :DataInterpolations)
+                error("differentiation_method=:tikhonov_datainterpolations requires DataInterpolations, which is not available in this environment. Run Pkg.instantiate() or switch to :finite_difference/:savitzky_golay.")
+            end
             dX[:, i] = tikhonov_datainterpolations_derivative_1d(t, X[:, i], Float64(tikhonov_lambda))
         else
             error("Unknown differentiation method: $method. Use :finite_difference, :savitzky_golay, :tikhonov, :tikhonov_regularizationtools, or :tikhonov_datainterpolations")
