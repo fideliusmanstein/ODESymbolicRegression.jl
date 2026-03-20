@@ -5,17 +5,19 @@ Numerical differentiation and feature matrix construction.
 """
 
 """
-    compute_numerical_derivatives(t::Vector, X::Matrix; method=:finite_difference, 
-                                 window=11, poly_order=2)
+    compute_numerical_derivatives(t::Vector, X::Matrix; method=:finite_difference,
+                                 window=11, poly_order=2, tikhonov_lambda=1e-2)
 
 Compute numerical derivatives of state variables.
 
 # Arguments
 - `t`: Time vector (length n_time)
 - `X`: State matrix (n_time × n_states)
-- `method`: Derivative computation method (:finite_difference or :savitzky_golay)
+- `method`: Derivative computation method (:finite_difference, :savitzky_golay, :tikhonov,
+            :tikhonov_regularizationtools, or :tikhonov_datainterpolations)
 - `window`: Window size for Savitzky-Golay filter (must be odd, default: 11)
 - `poly_order`: Polynomial order for Savitzky-Golay filter (default: 2)
+- `tikhonov_lambda`: Smoothing strength for Tikhonov regularization (default: 1e-2)
 
 # Returns
 - `dX`: Derivative matrix (n_time × n_states)
@@ -23,9 +25,50 @@ Compute numerical derivatives of state variables.
 function compute_numerical_derivatives(t::Vector, X::Matrix; 
                                       method=:finite_difference,
                                       window=11, 
-                                      poly_order=2)
+                                      poly_order=2,
+                                      tikhonov_lambda=1e-2)
     n_time, n_states = size(X)
     dX = zeros(n_time, n_states)
+
+    function finite_difference_1d(t::Vector, x::AbstractVector)
+        n = length(t)
+        dx = zeros(Float64, n)
+        for j in 2:n-1
+            dx[j] = (x[j+1] - x[j-1]) / (t[j+1] - t[j-1])
+        end
+        dx[1] = (x[2] - x[1]) / (t[2] - t[1])
+        dx[end] = (x[end] - x[end-1]) / (t[end] - t[end-1])
+        return dx
+    end
+
+    function tikhonov_smooth_regularizationtools_1d(x::AbstractVector, λ::Float64)
+        n = length(x)
+        if n < 3 || λ <= 0
+            return Float64.(x)
+        end
+
+        Aop = zeros(Float64, n, n)
+        for j in 1:n
+            Aop[j, j] = 1.0
+        end
+        Ψ = RegularizationTools.setupRegularizationProblem(Aop, 2)
+        b = Float64.(x)
+        b̄ = RegularizationTools.to_standard_form(Ψ, b)
+        x̄ = RegularizationTools.solve(Ψ, b̄, λ)
+        return RegularizationTools.to_general_form(Ψ, b, x̄)
+    end
+
+    function tikhonov_datainterpolations_derivative_1d(t::Vector, x::AbstractVector, λ::Float64)
+        n = length(t)
+        if n < 3 || λ <= 0
+            return finite_difference_1d(t, x)
+        end
+
+        t_vec = Float64.(t)
+        x_vec = Float64.(x)
+        reg = DataInterpolations.RegularizationSmooth(x_vec, t_vec, 2; λ=λ)
+        return [DataInterpolations.derivative(reg, ti) for ti in t_vec]
+    end
     
     for i in 1:n_states
         if method == :finite_difference
@@ -41,8 +84,13 @@ function compute_numerical_derivatives(t::Vector, X::Matrix;
             h = Float64(t[2] - t[1])  # Assume uniform spacing
             deriv_raw = savitzky_golay(X[:, i], window, poly_order, deriv=1)
             dX[:, i] = deriv_raw.y ./ h
+        elseif method == :tikhonov_regularizationtools
+            x_smooth = tikhonov_smooth_regularizationtools_1d(X[:, i], Float64(tikhonov_lambda))
+            dX[:, i] = finite_difference_1d(t, x_smooth)
+        elseif method == :tikhonov_datainterpolations
+            dX[:, i] = tikhonov_datainterpolations_derivative_1d(t, X[:, i], Float64(tikhonov_lambda))
         else
-            error("Unknown differentiation method: $method. Use :finite_difference or :savitzky_golay")
+            error("Unknown differentiation method: $method. Use :finite_difference, :savitzky_golay, :tikhonov, :tikhonov_regularizationtools, or :tikhonov_datainterpolations")
         end
     end
     
@@ -132,7 +180,8 @@ function aggregate_features_and_derivatives(experiments::Vector, ode_options::OD
         dX = compute_numerical_derivatives(t, X;
             method=ode_options.differentiation_method,
             window=ode_options.savitzky_golay_window,
-            poly_order=ode_options.savitzky_golay_order
+            poly_order=ode_options.savitzky_golay_order,
+            tikhonov_lambda=ode_options.tikhonov_lambda
         )
         
         # Create feature matrix for this trajectory

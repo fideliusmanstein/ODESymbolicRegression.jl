@@ -18,9 +18,10 @@ Configuration for ODE discovery through symbolic regression.
 - `complexity_derivative`: Max complexity for derivative search (default: 15)
 - `complexity_integration`: Max complexity for integration search (default: 10)
 - `parallelism`: Parallelism mode (:serial, :multithreading, :multiprocessing)
-- `differentiation_method`: Method for numerical derivatives (:finite_difference or :savitzky_golay)
+- `differentiation_method`: Method for numerical derivatives (:finite_difference, :savitzky_golay, :tikhonov, :tikhonov_regularizationtools, or :tikhonov_datainterpolations)
 - `savitzky_golay_window`: Window size for Savitzky-Golay filter (default: 11)
 - `savitzky_golay_order`: Polynomial order for Savitzky-Golay filter (default: 2)
+- `tikhonov_lambda`: Regularization strength for Tikhonov smoothing (default: 1e-2)
 - `seed`: Random seed for reproducibility
 - `verbose`: Enable verbose output
 """
@@ -36,6 +37,7 @@ struct ODERegressionOptions
     differentiation_method::Symbol
     savitzky_golay_window::Int
     savitzky_golay_order::Int
+    tikhonov_lambda::Float64
     seed::Int
     verbose::Bool
     
@@ -51,16 +53,18 @@ struct ODERegressionOptions
         differentiation_method=:finite_difference,
         savitzky_golay_window=11,
         savitzky_golay_order=2,
+        tikhonov_lambda=1e-2,
         seed=42,
         verbose=true
     )
-        @assert differentiation_method in [:finite_difference, :savitzky_golay] "differentiation_method must be :finite_difference or :savitzky_golay"
+        @assert differentiation_method in [:finite_difference, :savitzky_golay, :tikhonov, :tikhonov_regularizationtools, :tikhonov_datainterpolations] "differentiation_method must be :finite_difference, :savitzky_golay, :tikhonov, :tikhonov_regularizationtools, or :tikhonov_datainterpolations"
         @assert isodd(savitzky_golay_window) && savitzky_golay_window >= 3 "savitzky_golay_window must be odd and >= 3"
         @assert savitzky_golay_order >= 1 "savitzky_golay_order must be >= 1"
+        @assert tikhonov_lambda >= 0 "tikhonov_lambda must be >= 0"
         new(binary_operators, unary_operators, maxsize, 
             niterations_derivative, niterations_integration,
             complexity_derivative, complexity_integration,
             parallelism, differentiation_method, savitzky_golay_window, 
-            savitzky_golay_order, seed, verbose)
+            savitzky_golay_order, Float64(tikhonov_lambda), seed, verbose)
     end
 end

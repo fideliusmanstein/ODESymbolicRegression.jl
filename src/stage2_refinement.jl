@@ -365,7 +365,10 @@ function extract_training_data_from_experiments(
         try
             input_interps = setup_input_interpolations(t, inputs)
             dX_obs = compute_numerical_derivatives(t, X_obs; 
-                method=ode_options.differentiation_method)
+                method=ode_options.differentiation_method,
+                window=ode_options.savitzky_golay_window,
+                poly_order=ode_options.savitzky_golay_order,
+                tikhonov_lambda=ode_options.tikhonov_lambda)
             
             for i in 1:length(t)
                 # Build feature vector: states + inputs

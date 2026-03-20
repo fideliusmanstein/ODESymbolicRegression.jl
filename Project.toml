@@ -1,18 +1,20 @@
 name = "ODESymbolicRegression"
 uuid = "6f40f170-c29c-4622-b84b-c8a4184a3c86"
-authors = ["Fidelius von Manstein <fidelius.manstein@gmail.com>"]
 version = "0.1.0"
+authors = ["Fidelius von Manstein <fidelius.manstein@gmail.com>"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+RegularizationTools = "29dad682-9a27-4bc3-9c72-016788665182"
 SavitzkyGolay = "c4bf5708-b6a6-4fbe-bcd0-6850ed671584"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 SymbolicRegression = "8254be44-1295-4e6a-a16d-46603ac705cb"
@@ -20,13 +22,15 @@ SymbolicUtils = "d1185830-fcd6-423d-90d6-eec64667417b"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
-julia = "1.10"
+DataInterpolations = "8.9.0"
 DifferentialEquations = "7"
 Interpolations = "0.14, 0.15"
+RegularizationTools = "0.6.0"
 SavitzkyGolay = "0.6, 0.7, 0.8, 0.9"
 SymbolicRegression = "1"
 SymbolicUtils = "3"
 Symbolics = "6"
+julia = "1.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

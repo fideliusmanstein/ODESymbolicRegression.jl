@@ -25,6 +25,8 @@ using DifferentialEquations
 using SymbolicRegression
 using Interpolations
 using Logging
+using DataInterpolations
+using RegularizationTools
 using SavitzkyGolay
 using SymbolicUtils
 using Symbolics
