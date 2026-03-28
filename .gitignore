@@ -23,6 +23,7 @@ Manifest.toml
 # Output files
 outputs/
 benchmark_results/
+analysis_exports/
 server_results/
 *.txt
 !LICENSE
