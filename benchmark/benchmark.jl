@@ -52,20 +52,20 @@ sqrtp(x::T) where {T} = x > 0 ? sqrt(x) : T(NaN)
 
 # Single protected power operator: powc(x, c)
 # Accepts any finite exponent c.
-# @inline function powc(x::Real, c::Real)
-#     xf = Float64(x)
-#     cf = Float64(c)
-#     if !isfinite(xf) || !isfinite(cf)
-#         return NaN
-#     end
+@inline function powc(x::Real, c::Real)
+    xf = Float64(x)
+    cf = Float64(c)
+    if !isfinite(xf) || !isfinite(cf)
+        return NaN
+    end
 
-#     if xf < 0.0 || (xf == 0.0 && cf < 0.0)
-#         return NaN
-#     end
+    if xf < 0.0 || (xf == 0.0 && cf < 0.0)
+        return NaN
+    end
 
-#     y = exp(cf * log(xf))
-#     return isfinite(y) ? y : NaN
-# end
+    y = exp(cf * log(xf))
+    return isfinite(y) ? y : NaN
+end
 
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
@@ -73,7 +73,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     niterations_integration = 0,
     complexity_derivative = 15,
     complexity_integration = 15,
-    binary_operators = (+, *, -, /), # powc
+    binary_operators = (+, *, -, /, powc), # 
     unary_operators = (square, inv, sqrtp),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
