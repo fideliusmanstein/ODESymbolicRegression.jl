@@ -70,11 +70,11 @@ end
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     niterations_derivative = 150,
-    niterations_integration = 0,
+    niterations_integration = 100,
     complexity_derivative = 15,
     complexity_integration = 15,
-    binary_operators = (+, *, -, /, powc), # 
-    unary_operators = (), # (square, inv, sqrtp),
+    binary_operators = (+, *, -, /), # powc
+    unary_operators = (square, inv, sqrtp),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
     verbose = true
 )
