@@ -332,7 +332,8 @@ Save benchmark results summary to a JSON file for machine readability.
 function save_results_json(file_path, results)
     try
         open(file_path, "w") do f
-            JSON.print(f, results, 4)
+            JSON.print(f, results, 4; allownan=true)
+            flush(f)
         end
         println("JSON results saved to: $file_path")
     catch e

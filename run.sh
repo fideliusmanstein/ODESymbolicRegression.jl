@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=sr2_ode_benchmark
-#SBATCH --output=benchmark_output/results_%x_%j.txt
-#SBATCH --error=benchmark_output/errors_%x_%j.txt
+#SBATCH --job-name=ode_5_problems
+#SBATCH --output=benchmark_output/%x_results_%j.txt
+#SBATCH --error=benchmark_output/%x_errors_%j.txt
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=64
@@ -28,6 +28,7 @@ mkdir -p benchmark_output
 # Determine thread counts: prefer SLURM allocation if provided
 : ${SLURM_CPUS_PER_TASK:=16}
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export BENCHMARK_RUN_NAME="${SLURM_JOB_NAME:-local}"
 export OMP_NUM_THREADS=1
 export BLAS_NUM_THREADS=1
 
