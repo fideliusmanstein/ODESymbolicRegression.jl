@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ode_5_problems
+#SBATCH --job-name=knee_5
 #SBATCH --output=benchmark_output/%x_results_%j.txt
 #SBATCH --error=benchmark_output/%x_errors_%j.txt
 #SBATCH --nodes=1

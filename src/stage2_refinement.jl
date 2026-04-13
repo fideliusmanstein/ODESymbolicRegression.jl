@@ -38,6 +38,106 @@ function filter_candidates_by_complexity(derivative_candidates::Vector{Vector}, 
 end
 
 """
+    select_knee_point(candidates, sr_options) -> index
+
+Select the knee-point candidate from a Pareto frontier using maximum perpendicular distance
+from the line connecting the lowest-complexity and lowest-loss endpoints.
+
+Normalises both complexity and loss to [0, 1] before computing distances so that
+the two axes are on a comparable scale.  Falls back to the median-complexity
+candidate when the frontier is too small to have a meaningful knee.
+"""
+function select_knee_point(candidates::Vector, sr_options)
+    n = length(candidates)
+    if n == 1
+        return 1
+    end
+    if n == 2
+        return 1   # prefer simpler when only two options
+    end
+
+    complexities = Float64[compute_complexity(c, sr_options) for c in candidates]
+    losses       = Float64[c.loss for c in candidates]
+
+    # Normalise to [0, 1]; guard against constant axes
+    c_min, c_max = extrema(complexities)
+    l_min, l_max = extrema(losses)
+    c_range = c_max - c_min
+    l_range = l_max - l_min
+
+    if c_range == 0 && l_range == 0
+        return 1
+    end
+
+    nc = c_range == 0 ? zeros(n) : (complexities .- c_min) ./ c_range
+    nl = l_range == 0 ? zeros(n) : (losses       .- l_min) ./ l_range
+
+    # Line from point[1] to point[n] in normalised space
+    x1, y1 = nc[1], nl[1]
+    x2, y2 = nc[n], nl[n]
+    dx, dy  = x2 - x1, y2 - y1
+    line_len = sqrt(dx^2 + dy^2)
+
+    if line_len == 0
+        return 1
+    end
+
+    # Perpendicular distance of each point from the line
+    best_idx  = 1
+    best_dist = -Inf
+    for i in 1:n
+        dist = abs(dy * nc[i] - dx * nl[i] + x2 * y1 - y2 * x1) / line_len
+        if dist > best_dist
+            best_dist = dist
+            best_idx  = i
+        end
+    end
+    return best_idx
+end
+
+"""
+    find_initial_by_knee_point(filtered_candidates, sr_options, loss_config, verbose) -> (best_trees, best_loss, best_indices)
+
+Select one candidate per state independently using knee-point detection on each
+state's Pareto frontier, then evaluate the resulting single combination via
+integration loss.  Runs in O(n_states) ODE solves instead of the full
+combinatorial product.
+"""
+function find_initial_by_knee_point(
+    filtered_candidates::Vector{Vector},
+    sr_options,
+    loss_config::IntegrationLoss,
+    verbose::Bool
+)
+    if any(length(fc) == 0 for fc in filtered_candidates)
+        return nothing, Inf, nothing
+    end
+
+    n_states  = length(filtered_candidates)
+    indices   = Vector{Int}(undef, n_states)
+    trees     = Vector{Any}(undef, n_states)
+
+    for s in 1:n_states
+        idx        = select_knee_point(filtered_candidates[s], sr_options)
+        indices[s] = idx
+        trees[s]   = filtered_candidates[s][idx].tree
+        if verbose
+            c = compute_complexity(filtered_candidates[s][idx], sr_options)
+            l = round(filtered_candidates[s][idx].loss, sigdigits=4)
+            println("  State $s knee-point: candidate $idx/$(length(filtered_candidates[s])) (complexity=$c, derivative_loss=$l)")
+        end
+    end
+
+    loss = try
+        evaluate_ode_system(trees, loss_config)
+    catch
+        Inf
+    end
+
+    return trees, loss, indices
+end
+
+"""
     find_best_initial_combination(filtered_candidates, loss_config, verbose) -> (best_trees, best_loss, best_indices)
 
 Search through all combinations of candidate equations to find the one with lowest integration loss.
@@ -287,16 +387,25 @@ function refine_with_integration(
 
     # Find best initial combination from candidates
     if verbose
-        total_combos = prod([length(fc) for fc in filtered_candidates])
         counts = [length(fc) for fc in filtered_candidates]
         println("Candidates per state: ", join(counts, ", "))
-        println("Total combinations to evaluate: $total_combos")
+        println("Combination method: $(ode_options.combination_method)")
+        if ode_options.combination_method == :combination_search
+            total_combos = prod(counts)
+            println("Total combinations to evaluate: $total_combos")
+        end
         println("Finding best initial combination...")
     end
-    
-    initial_trees, initial_loss, best_indices = find_best_initial_combination(
-        filtered_candidates, loss_config, verbose
-    )
+
+    if ode_options.combination_method == :knee_point
+        initial_trees, initial_loss, best_indices = find_initial_by_knee_point(
+            filtered_candidates, sr_options, loss_config, verbose
+        )
+    else
+        initial_trees, initial_loss, best_indices = find_best_initial_combination(
+            filtered_candidates, loss_config, verbose
+        )
+    end
     
     if verbose
         println("  Initial loss: ", round(initial_loss, sigdigits=4))

@@ -24,6 +24,7 @@ Configuration for ODE discovery through symbolic regression.
 - `tikhonov_lambda`: Regularization strength for Tikhonov smoothing (default: 1e-2)
 - `seed`: Random seed for reproducibility
 - `verbose`: Enable verbose output
+- `combination_method`: Strategy for selecting initial equation combination in Stage 2 (`:combination_search` or `:knee_point`)
 """
 struct ODERegressionOptions
     binary_operators::Tuple
@@ -40,6 +41,7 @@ struct ODERegressionOptions
     tikhonov_lambda::Float64
     seed::Int
     verbose::Bool
+    combination_method::Symbol
     
     function ODERegressionOptions(;
         binary_operators=(+, *, -, /),
@@ -55,16 +57,19 @@ struct ODERegressionOptions
         savitzky_golay_order=2,
         tikhonov_lambda=1e-2,
         seed=42,
-        verbose=true
+        verbose=true,
+        combination_method=:combination_search
     )
         @assert differentiation_method in [:finite_difference, :savitzky_golay, :tikhonov, :tikhonov_regularizationtools, :tikhonov_datainterpolations] "differentiation_method must be :finite_difference, :savitzky_golay, :tikhonov, :tikhonov_regularizationtools, or :tikhonov_datainterpolations"
         @assert isodd(savitzky_golay_window) && savitzky_golay_window >= 3 "savitzky_golay_window must be odd and >= 3"
         @assert savitzky_golay_order >= 1 "savitzky_golay_order must be >= 1"
         @assert tikhonov_lambda >= 0 "tikhonov_lambda must be >= 0"
+        @assert combination_method in [:combination_search, :knee_point] "combination_method must be :combination_search or :knee_point"
         new(binary_operators, unary_operators, maxsize, 
             niterations_derivative, niterations_integration,
             complexity_derivative, complexity_integration,
             parallelism, differentiation_method, savitzky_golay_window, 
-            savitzky_golay_order, Float64(tikhonov_lambda), seed, verbose)
+            savitzky_golay_order, Float64(tikhonov_lambda), seed, verbose,
+            combination_method)
     end
 end
