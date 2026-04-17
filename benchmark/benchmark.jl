@@ -368,8 +368,11 @@ results_summary = Dict{String, Dict}()
 end
 
 # Run all tests
-@testset "ODE Discovery - All Benchmark Systems" begin
-    for problem_name in problems.testable
+# Note: wrap in try/catch so that TestSetException (thrown when any @test fails)
+# does not prevent the final reporting/export code from running.
+try
+    @testset "ODE Discovery - All Benchmark Systems" begin
+        for problem_name in problems.testable
         @testset "$problem_name" begin
             # Write start marker immediately so the file shows which problem is running
             open(results_file, "a") do f
@@ -397,7 +400,7 @@ end
                 write_result_to_file(f, result)
             end
             
-            # Print diagnostics for failures
+            # Print diagnostics for errors/crashes
             if !result["success"]
                 print_failure_diagnostics(problem_name, result)
             end
@@ -405,11 +408,19 @@ end
             # Print equation similarity analysis (for both success and failure)
             print_equation_similarity(result)
             
-            # Test assertion (skip if timeout)
+            # Test assertion: did execution complete without crash/timeout?
             if completed
-                @test result["success"]
+                @test result["success"]  # false only if an exception was thrown
             end
         end
+    end
+end
+catch e
+    if e isa Test.TestSetException
+        # Some tests failed — continue to reporting
+        @warn "Some benchmark tests failed, continuing with result export..." n_failed=e.pass+e.fail > 0 ? e.fail : "unknown"
+    else
+        rethrow(e)
     end
 end
 

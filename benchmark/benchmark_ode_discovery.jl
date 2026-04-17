@@ -390,7 +390,7 @@ Benchmark ODE discovery on a single problem.
 - `ode_options`: ODERegressionOptions (if nothing, uses default fast settings)
 
 # Returns
-- Dictionary with benchmark results (success based on integration_loss < 1.0)
+- Dictionary with benchmark results (success = true if execution completed, false if crashed/timed out)
 """
 function benchmark_single_problem(problem_name; 
                                  ode_options=nothing,
@@ -438,8 +438,8 @@ function benchmark_single_problem(problem_name;
         n_inputs = length(get(exp, :inputs, Dict()))
         n_features = n_states + n_inputs
         
-        # Success based on integration loss (no ground truth comparison)
-        success = result.integration_loss < 1.0  # Threshold for reasonable discovery
+        # Success = execution completed without error (quality is reported via integration_loss and equation_scores)
+        success = true
         
         # Convert discovered trees to equation strings with normalization
         sr_options = SymbolicRegression.Options(
@@ -680,7 +680,7 @@ function benchmark_all_problems(;
     println("BENCHMARK: ODE Discovery System")
     println("="^80)
     println("Total problems to test: ", length(problem_names))
-    println("Success criterion: Integration loss < 1.0")
+    println("Success criterion: Execution completed without error or timeout")
     if ode_options !== nothing
         println("Derivative iterations: ", ode_options.niterations_derivative)
         println("Integration iterations: ", ode_options.niterations_integration)

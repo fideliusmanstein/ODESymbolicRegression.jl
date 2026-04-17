@@ -325,6 +325,23 @@ function write_file_header(file, test_options, num_trajectories, noise_std, max_
 end
 
 """
+    sanitize_for_json(x)
+
+Recursively replace NaN, Inf, and -Inf with nothing (serialized as JSON null)
+so that JSON.print does not throw on non-finite float values.
+"""
+function sanitize_for_json(x::AbstractFloat)
+    return isfinite(x) ? x : nothing
+end
+function sanitize_for_json(x::AbstractDict)
+    return Dict(k => sanitize_for_json(v) for (k, v) in x)
+end
+function sanitize_for_json(x::AbstractVector)
+    return [sanitize_for_json(v) for v in x]
+end
+sanitize_for_json(x) = x  # strings, ints, bools, nothing → pass through
+
+"""
     save_results_json(file_path, results)
 
 Save benchmark results summary to a JSON file for machine readability.
@@ -332,13 +349,12 @@ Save benchmark results summary to a JSON file for machine readability.
 function save_results_json(file_path, results)
     try
         open(file_path, "w") do f
-            JSON.print(f, results, 4; allownan=true)
+            JSON.print(f, sanitize_for_json(results), 4)
             flush(f)
         end
         println("JSON results saved to: $file_path")
     catch e
-        @warn "Failed to save JSON results to $file_path: $e"
-        # Try a more robust print if possible, or just skip
+        println("ERROR: Failed to save JSON results to $file_path: $e")
     end
 end
 
