@@ -332,6 +332,10 @@ function iteratively_refine_equations(
     n_states = length(best_trees)
     
     for state_idx in 1:n_states
+        if verbose
+            println("  Refining state $state_idx (current system loss: $(round(best_loss, sigdigits=4)))...")
+        end
+
         new_tree, improved_loss = refine_single_equation(
             best_trees, state_idx, experiments, ode_options, loss_config
         )
@@ -343,6 +347,11 @@ function iteratively_refine_equations(
             
             if verbose
                 println("  ✓ State $state_idx improved: loss = $(round(best_loss, sigdigits=4))")
+            end
+        else
+            if verbose
+                loss_str = new_tree === nothing ? "no candidate found" : "best candidate loss = $(round(improved_loss, sigdigits=4)) (not better)"
+                println("  - State $state_idx: no improvement ($loss_str)")
             end
         end
     end

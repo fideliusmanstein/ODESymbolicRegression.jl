@@ -70,13 +70,13 @@ end
 # Test configuration - minimal for fast testing
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     niterations_derivative = 150,
-    niterations_integration = 150,
+    niterations_integration = 0,
     complexity_derivative = 15,
     complexity_integration = 15,
     binary_operators = (+, *, -, /), # powc
     unary_operators = (square, inv, sqrtp),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
-    combination_method = :knee_point,  # :combination_search or :knee_point
+    combination_method = :combination_search,  # :combination_search or :knee_point
     verbose = true
 )
 
@@ -87,7 +87,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
 const NUM_TRAJECTORIES = 5
 const NOISE_STD = 0.01  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
 const N_POINTS = 251  # Time points per trajectory (nothing = use each problem's default)
-const MAX_PROBLEMS_TO_TEST = 3  # Options: nothing, 5, 10, 20, etc.
+const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
 
@@ -99,7 +99,9 @@ const TIMEOUT_PROBLEMS = [
     "ss_30genes2",
     "ss_30genes3",
     "ss_clock1",
-    "ss_clock2"
+    "ss_clock2",
+    "ss_sosrepair1",  # 6 states, slow
+    "ss_sosrepair2",  # 6 states, slow
     # "ss_cascade3",  # TODO: this problem gets stuck on the server. Figure out why
     # "ss_5genes8",
     # "ss_5genes6", # these two take really long
@@ -217,6 +219,11 @@ function get_nonredundant_problems()
     end
 
     testable_problems = sort(selected)
+
+    # Limit number of problems if MAX_PROBLEMS_TO_TEST is set
+    if MAX_PROBLEMS_TO_TEST !== nothing && MAX_PROBLEMS_TO_TEST < length(testable_problems)
+        testable_problems = testable_problems[1:MAX_PROBLEMS_TO_TEST]
+    end
 
     return (
         all = all_problems_full,

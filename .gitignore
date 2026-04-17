@@ -23,6 +23,7 @@ Manifest.toml
 # Output files
 outputs/
 benchmark_results/
+benchmark_output/
 analysis_exports/
 server_results/
 *.txt
