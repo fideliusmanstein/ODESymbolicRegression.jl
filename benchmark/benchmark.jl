@@ -76,7 +76,7 @@ const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     binary_operators = (+, *, -, /), # powc
     unary_operators = (square, inv, sqrtp),
     parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
-    combination_method = :combination_search,  # :combination_search or :knee_point
+    combination_method = :knee_point,  # :combination_search or :knee_point
     verbose = true
 )
 

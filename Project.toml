@@ -5,6 +5,7 @@ authors = ["Fidelius von Manstein <fidelius.manstein@gmail.com>"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -22,6 +23,7 @@ SymbolicUtils = "d1185830-fcd6-423d-90d6-eec64667417b"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
+CairoMakie = "0.15.9"
 DataInterpolations = "8.9.0"
 DifferentialEquations = "7"
 Interpolations = "0.14, 0.15"

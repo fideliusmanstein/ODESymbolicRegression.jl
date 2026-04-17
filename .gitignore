@@ -24,6 +24,7 @@ Manifest.toml
 outputs/
 benchmark_results/
 benchmark_output/
+thesis_figures/
 analysis_exports/
 server_results/
 *.txt
