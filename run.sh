@@ -4,7 +4,7 @@
 #SBATCH --error=benchmark_output/%x_errors_%j.txt
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=30
 #SBATCH --time=5-00:00:00
 #SBATCH --mem=6G
 
