@@ -67,29 +67,45 @@ sqrtp(x::T) where {T} = x > 0 ? sqrt(x) : T(NaN)
     return isfinite(y) ? y : NaN
 end
 
-# Test configuration - minimal for fast testing
-const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative = 150,
-    niterations_integration = 100,
-    complexity_derivative = 15,
-    complexity_integration = 15,
-    binary_operators = (+, *, -, /), # powc
-    unary_operators = (square, inv, sqrtp),
-    parallelism = :multithreading,  # Keep SymbolicRegression serial; use stage2 multithreading instead
-    combination_method = :knee_point,  # :combination_search or :knee_point
-    verbose = true
-)
-
 # Multi-trajectory configuration for robust evaluation
 # NUM_TRAJECTORIES is the exact number of experiment trajectories passed to the solver.
 # Predefined experiments from the problem definition are used first (up to NUM_TRAJECTORIES);
 # if the problem has fewer, the remainder are filled with perturbed copies of existing ICs.
-const NUM_TRAJECTORIES = 5
-const NOISE_STD = 0.01  # Noise level for data generation (0.0 = no noise, 0.1 = 10% noise)
-const N_POINTS = 251  # Time points per trajectory (nothing = use each problem's default)
+#
+# Scalar parameters can be overridden via environment variables (used by sweep_hyperparams.sh):
+#   NOISE_STD, N_POINTS (or "nothing"), RESULTS_DIR, NUM_TRAJECTORIES
+#   COMBO_MODE: "knee"   → niterations_integration=100, combination_method=:knee_point
+#               "search" → niterations_integration=0,   combination_method=:combination_search
+const NUM_TRAJECTORIES = parse(Int, get(ENV, "NUM_TRAJECTORIES", "5"))
+const NOISE_STD        = parse(Float64, get(ENV, "NOISE_STD", "0.01"))
+const N_POINTS         = let s = get(ENV, "N_POINTS", "251")
+                             s == "nothing" ? nothing : parse(Int, s)
+                         end
+const RESULTS_DIR      = get(ENV, "RESULTS_DIR", "benchmark_results")
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
+
+# Resolve combo mode from ENV
+const _COMBO_MODE = get(ENV, "COMBO_MODE", "knee")
+const _NITER_INTEGRATION, _COMBINATION_METHOD = if _COMBO_MODE == "search"
+    (0, :combination_search)
+else  # default: "knee"
+    (100, :knee_point)
+end
+
+# Test configuration
+const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
+    niterations_derivative  = 150,
+    niterations_integration = _NITER_INTEGRATION,
+    complexity_derivative   = 15,
+    complexity_integration  = 15,
+    binary_operators  = (+, *, -, /),
+    unary_operators   = (square, inv, sqrtp),
+    parallelism       = :multithreading,
+    combination_method = _COMBINATION_METHOD,
+    verbose = true
+)
 
 # Problems that timeout with minimal config (too many variables/experiments)
 const TIMEOUT_PROBLEMS = [
@@ -356,7 +372,7 @@ problems = get_nonredundant_problems()
 print_test_header(problems, TEST_OPTIONS, NUM_TRAJECTORIES, NOISE_STD, MAX_PROBLEMS_TO_TEST, TIMEOUT_SECONDS, N_POINTS, PROBLEMS_OVERRIDE)
 
 # Setup results file
-results_dir = "benchmark_results"
+results_dir = RESULTS_DIR
 mkpath(results_dir)
 run_name = get(ENV, "BENCHMARK_RUN_NAME", "benchmark")
 results_file = joinpath(results_dir, "$(run_name)_results_$(Dates.format(now(), "yyyymmdd_HHMMSS")).txt")
