@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=64
 #SBATCH --time=5-00:00:00
-#SBATCH --mem=32G
+#SBATCH --mem=6G
 
 set -euo pipefail
 
@@ -39,6 +39,7 @@ echo "BLAS_NUM_THREADS=$BLAS_NUM_THREADS"
 echo "OMP_NUM_THREADS=$OMP_NUM_THREADS"
 
 # Run benchmark using project environment and requested threads
-julia --project=. -t $JULIA_NUM_THREADS benchmark/benchmark.jl
+# /usr/bin/time -v reports peak RSS at the end (works regardless of SLURM memory tracking)
+/usr/bin/time -v julia --project=. -t $JULIA_NUM_THREADS benchmark/benchmark.jl
 
 echo "Finished: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
