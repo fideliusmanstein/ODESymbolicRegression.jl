@@ -60,6 +60,12 @@ for noise in "${NOISE_LEVELS[@]}"; do
                 noise_tag=$(echo "$noise" | tr '.' '_')
                 job_name="hp_${combo}_noise${noise_tag}_pts${n_pts}_traj${n_traj}"
 
+                # Skip if a result file for this combination already exists
+                if compgen -G "${RESULTS_DIR}/${job_name}_results_*.txt" > /dev/null 2>&1; then
+                    echo "  Skipping:   $job_name  (result already exists)"
+                    continue
+                fi
+
                 echo "  Submitting: $job_name  (noise=$noise, n_points=$n_pts, combo=$combo, n_traj=$n_traj)"
 
                 sbatch \
