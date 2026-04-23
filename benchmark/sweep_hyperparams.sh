@@ -48,6 +48,8 @@ echo ""
 mkdir -p benchmark_output
 mkdir -p "$RESULTS_DIR"
 
+SKIPPED=0
+
 # ---------------------------------------------------------------------------
 # Submit one sbatch job per combination
 # ---------------------------------------------------------------------------
@@ -63,6 +65,7 @@ for noise in "${NOISE_LEVELS[@]}"; do
                 # Skip if a result file for this combination already exists
                 if compgen -G "${RESULTS_DIR}/${job_name}_results_*.txt" > /dev/null 2>&1; then
                     echo "  Skipping:   $job_name  (result already exists)"
+                    (( SKIPPED++ )) || true
                     continue
                 fi
 
@@ -81,4 +84,4 @@ for noise in "${NOISE_LEVELS[@]}"; do
 done
 
 echo ""
-echo "All $TOTAL jobs submitted. Results will appear in $RESULTS_DIR/"
+echo "Submitted $(( TOTAL - SKIPPED )) of $TOTAL jobs ($SKIPPED skipped). Results will appear in $RESULTS_DIR/"
