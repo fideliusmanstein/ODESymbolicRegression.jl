@@ -74,6 +74,11 @@ end
 #
 # Scalar parameters can be overridden via environment variables (used by sweep_hyperparams.sh):
 #   NOISE_STD, N_POINTS (or "nothing"), RESULTS_DIR, NUM_TRAJECTORIES
+#   COMPLEXITY:      integer, default 15
+#   NITER_DERIVATIVE: integer, default 150
+#   OPERATOR_SET:    "standard"  → binary=(+,*,-,/),       unary=(square,inv,sqrtp)
+#                    "powc_only" → binary=(+,*,-,/,powc),   unary=()
+#                    "powc_full" → binary=(+,*,-,/,powc),   unary=(square,inv,sqrtp)
 #   COMBO_MODE: "knee"   → niterations_integration=100, combination_method=:knee_point
 #               "search" → niterations_integration=0,   combination_method=:combination_search
 const NUM_TRAJECTORIES = parse(Int, get(ENV, "NUM_TRAJECTORIES", "5"))
@@ -81,8 +86,10 @@ const NOISE_STD        = parse(Float64, get(ENV, "NOISE_STD", "0.01"))
 const N_POINTS         = let s = get(ENV, "N_POINTS", "251")
                              s == "nothing" ? nothing : parse(Int, s)
                          end
-const RESULTS_DIR      = get(ENV, "RESULTS_DIR", "benchmark_results")
-const COMPLEXITY       = parse(Int, get(ENV, "COMPLEXITY", "15"))
+const RESULTS_DIR       = get(ENV, "RESULTS_DIR", "benchmark_results")
+const COMPLEXITY        = parse(Int, get(ENV, "COMPLEXITY", "15"))
+const NITER_DERIVATIVE  = parse(Int, get(ENV, "NITER_DERIVATIVE", "150"))
+const OPERATOR_SET      = get(ENV, "OPERATOR_SET", "standard")
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
@@ -95,14 +102,23 @@ else  # default: "knee"
     (100, :knee_point)
 end
 
+# Resolve operator set from ENV
+const _BINARY_OPS, _UNARY_OPS = if OPERATOR_SET == "powc_only"
+    ((+, *, -, /, powc), ())
+elseif OPERATOR_SET == "powc_full"
+    ((+, *, -, /, powc), (square, inv, sqrtp))
+else  # "standard"
+    ((+, *, -, /), (square, inv, sqrtp))
+end
+
 # Test configuration
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
-    niterations_derivative  = 150,
+    niterations_derivative  = NITER_DERIVATIVE,
     niterations_integration = _NITER_INTEGRATION,
     complexity_derivative   = COMPLEXITY,
     complexity_integration  = COMPLEXITY,
-    binary_operators  = (+, *, -, /),
-    unary_operators   = (square, inv, sqrtp),
+    binary_operators  = _BINARY_OPS,
+    unary_operators   = _UNARY_OPS,
     parallelism       = :multithreading,
     combination_method = _COMBINATION_METHOD,
     verbose = true
