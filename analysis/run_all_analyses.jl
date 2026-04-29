@@ -6,6 +6,7 @@ include(joinpath(@__DIR__, "phase3_interactions.jl"))
 include(joinpath(@__DIR__, "phase4_problem_stratified.jl"))
 include(joinpath(@__DIR__, "phase5_decision_outputs.jl"))
 include(joinpath(@__DIR__, "phase6_threshold_correctness.jl"))
+include(joinpath(@__DIR__, "phase7_initial_final_equation_changes.jl"))
 
 function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "hyperparameter_search")),
                             output_dir = joinpath(@__DIR__, "outputs"))
@@ -38,13 +39,16 @@ function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "hyp
     println("[analysis] phase 6: threshold correctness")
     run_phase6(df_analysis, output_dir)
 
+    println("[analysis] phase 7: knee initial vs final equation changes")
+    run_phase7(phase0.manifest, output_dir)
+
     # Build artifact index
     index_lines = String[]
     push!(index_lines, "Analysis Artifacts Index")
     push!(index_lines, "Generated: $(Dates.now())")
     push!(index_lines, "")
 
-    for phase in ("phase0", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6")
+    for phase in ("phase0", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6", "phase7")
         phase_path = joinpath(output_dir, phase)
         push!(index_lines, "[$phase]")
         for f in sort(readdir(phase_path))

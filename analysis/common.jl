@@ -8,7 +8,7 @@ CairoMakie.activate!()
 
 function ensure_output_dirs(base_output_dir::AbstractString)
     mkpath(base_output_dir)
-    for phase in ("phase0", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6")
+    for phase in ("phase0", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6", "phase7")
         mkpath(joinpath(base_output_dir, phase))
     end
     return nothing

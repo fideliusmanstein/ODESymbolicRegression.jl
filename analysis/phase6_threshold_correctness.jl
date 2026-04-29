@@ -130,8 +130,11 @@ function _plot_bucket_correctness(summary::DataFrame, threshold::Real, outpath::
     save_plot(fig, outpath)
 end
 
-function _best_run_key_for_threshold(combo_summary::DataFrame, threshold::Real)
+function _best_run_key_for_threshold(combo_summary::DataFrame, threshold::Real; mode = nothing)
     rows = filter(r -> r.threshold == threshold, combo_summary)
+    if mode !== nothing
+        rows = filter(r -> r.mode == mode, rows)
+    end
     isempty(rows) && return nothing
 
     ranked = sort(rows, [:n_problem_correct, :n_fully_correct, :problem_correct_rate, :run_key], rev = [true, true, true, false])
@@ -224,13 +227,17 @@ function _count_equations_ge_threshold(json_path::AbstractString, threshold::Rea
     return n
 end
 
-function _best_run_by_equation_threshold(manifest::DataFrame, threshold::Real)
+function _best_run_by_equation_threshold(manifest::DataFrame, threshold::Real; mode = nothing)
     if nrow(manifest) == 0 || !("json_path" in names(manifest))
         return nothing
     end
 
     rows = NamedTuple[]
     for row in eachrow(manifest)
+        if mode !== nothing && row.mode != mode
+            continue
+        end
+
         json_path = row.json_path
         if ismissing(json_path) || !isfile(json_path)
             continue
@@ -329,6 +336,9 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
     best_run_key_095 = nothing
     best_equation_count_095 = missing
     best_json_path_095 = nothing
+    best_knee_run_key_095 = nothing
+    best_knee_equation_count_095 = missing
+    best_knee_json_path_095 = nothing
 
     manifest_path = joinpath(output_dir, "phase0", "manifest.csv")
     if isfile(manifest_path)
@@ -339,6 +349,13 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
             best_equation_count_095 = best_row.n_equations_ge_threshold
             best_json_path_095 = best_row.json_path
         end
+
+        best_knee_row = _best_run_by_equation_threshold(manifest, 0.95, mode = "knee")
+        if best_knee_row !== nothing
+            best_knee_run_key_095 = best_knee_row.run_key
+            best_knee_equation_count_095 = best_knee_row.n_equations_ge_threshold
+            best_knee_json_path_095 = best_knee_row.json_path
+        end
     end
 
     # Fallback to problem-level selection if manifest/json is unavailable.
@@ -346,8 +363,16 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
         best_run_key_095 = _best_run_key_for_threshold(combo_summary, 0.95)
     end
 
+    if best_knee_run_key_095 === nothing
+        best_knee_run_key_095 = _best_run_key_for_threshold(combo_summary, 0.95, mode = "knee")
+    end
+
     if best_run_key_095 !== nothing && best_json_path_095 !== nothing
         _plot_problem_stacked_correctness(best_json_path_095, best_run_key_095, joinpath(phase_dir, "problem_stacked_correctness.png"))
+    end
+
+    if best_knee_run_key_095 !== nothing && best_knee_json_path_095 !== nothing
+        _plot_problem_stacked_correctness(best_knee_json_path_095, best_knee_run_key_095, joinpath(phase_dir, "problem_stacked_correctness_knee.png"))
     end
 
     lines = String[]
@@ -392,6 +417,18 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
         end
         if best_json_path_095 !== nothing
             push!(lines, "- source_json=$(best_json_path_095)")
+        end
+    end
+
+    if best_knee_run_key_095 !== nothing
+        push!(lines, "")
+        push!(lines, "Stacked problem plot run selection for knee mode (R² >= 0.95 count criterion):")
+        push!(lines, "- selected run_key=$(best_knee_run_key_095)")
+        if !ismissing(best_knee_equation_count_095)
+            push!(lines, "- n_equations_with_r2_ge_0_95=$(best_knee_equation_count_095)")
+        end
+        if best_knee_json_path_095 !== nothing
+            push!(lines, "- source_json=$(best_knee_json_path_095)")
         end
     end
 
