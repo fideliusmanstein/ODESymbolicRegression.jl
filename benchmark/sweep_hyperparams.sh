@@ -34,6 +34,7 @@ ADDITIONAL_NOISE="0.01"
 ADDITIONAL_N_POINTS_LIST=(100 250 500)
 ADDITIONAL_NUM_TRAJ_LIST=(5 10 20)
 ADDITIONAL_COMBO="knee"
+ADDITIONAL_COMPLEXITY_LIST=(10 15 20)
 
 # ---------------------------------------------------------------------------
 # Derived counts
@@ -46,7 +47,8 @@ TOTAL=$(( N_NOISE * N_PTS * N_COMBO * N_TRAJ ))
 
 N_ADDITIONAL_PTS=${#ADDITIONAL_N_POINTS_LIST[@]}
 N_ADDITIONAL_TRAJ=${#ADDITIONAL_NUM_TRAJ_LIST[@]}
-ADDITIONAL_TOTAL=$(( N_ADDITIONAL_PTS * N_ADDITIONAL_TRAJ ))
+N_ADDITIONAL_CX=${#ADDITIONAL_COMPLEXITY_LIST[@]}
+ADDITIONAL_TOTAL=$(( N_ADDITIONAL_PTS * N_ADDITIONAL_TRAJ * N_ADDITIONAL_CX ))
 
 echo "Hyperparameter sweep"
 echo "  Noise levels      : ${NOISE_LEVELS[*]}"
@@ -61,6 +63,7 @@ echo "  Noise level       : $ADDITIONAL_NOISE"
 echo "  N points          : ${ADDITIONAL_N_POINTS_LIST[*]}"
 echo "  Combo mode        : $ADDITIONAL_COMBO"
 echo "  Num trajectories  : ${ADDITIONAL_NUM_TRAJ_LIST[*]}"
+echo "  Complexity values : ${ADDITIONAL_COMPLEXITY_LIST[*]}"
 echo "  Results dir       : $ADDITIONAL_RESULTS_DIR"
 echo "  Total jobs        : $ADDITIONAL_TOTAL"
 echo ""
@@ -110,25 +113,27 @@ done
 # ---------------------------------------------------------------------------
 for n_pts in "${ADDITIONAL_N_POINTS_LIST[@]}"; do
     for n_traj in "${ADDITIONAL_NUM_TRAJ_LIST[@]}"; do
+        for cx in "${ADDITIONAL_COMPLEXITY_LIST[@]}"; do
 
-        noise_tag=$(echo "$ADDITIONAL_NOISE" | tr '.' '_')
-        job_name="hp_traj_${ADDITIONAL_COMBO}_noise${noise_tag}_pts${n_pts}_traj${n_traj}"
+            noise_tag=$(echo "$ADDITIONAL_NOISE" | tr '.' '_')
+            job_name="hp_traj_${ADDITIONAL_COMBO}_noise${noise_tag}_pts${n_pts}_traj${n_traj}_cx${cx}"
 
-        if compgen -G "${ADDITIONAL_RESULTS_DIR}/${job_name}_results_*.txt" > /dev/null 2>&1; then
-            echo "  Skipping:   $job_name  (result already exists)"
-            (( ADDITIONAL_SKIPPED++ )) || true
-            continue
-        fi
+            if compgen -G "${ADDITIONAL_RESULTS_DIR}/${job_name}_results_*.txt" > /dev/null 2>&1; then
+                echo "  Skipping:   $job_name  (result already exists)"
+                (( ADDITIONAL_SKIPPED++ )) || true
+                continue
+            fi
 
-        echo "  Submitting: $job_name  (noise=$ADDITIONAL_NOISE, n_points=$n_pts, combo=$ADDITIONAL_COMBO, n_traj=$n_traj)"
+            echo "  Submitting: $job_name  (noise=$ADDITIONAL_NOISE, n_points=$n_pts, combo=$ADDITIONAL_COMBO, n_traj=$n_traj, complexity=$cx)"
 
-        sbatch \
-            --job-name="$job_name" \
-            --output="benchmark_output/%x_results_%j.txt" \
-            --error="benchmark_output/%x_errors_%j.txt" \
-            --export=ALL,NOISE_STD="$ADDITIONAL_NOISE",N_POINTS="$n_pts",COMBO_MODE="$ADDITIONAL_COMBO",NUM_TRAJECTORIES="$n_traj",RESULTS_DIR="$ADDITIONAL_RESULTS_DIR",BENCHMARK_RUN_NAME="$job_name" \
-            run.sh
+            sbatch \
+                --job-name="$job_name" \
+                --output="benchmark_output/%x_results_%j.txt" \
+                --error="benchmark_output/%x_errors_%j.txt" \
+                --export=ALL,NOISE_STD="$ADDITIONAL_NOISE",N_POINTS="$n_pts",COMBO_MODE="$ADDITIONAL_COMBO",NUM_TRAJECTORIES="$n_traj",COMPLEXITY="$cx",RESULTS_DIR="$ADDITIONAL_RESULTS_DIR",BENCHMARK_RUN_NAME="$job_name" \
+                run.sh
 
+        done
     done
 done
 

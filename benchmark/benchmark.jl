@@ -82,6 +82,7 @@ const N_POINTS         = let s = get(ENV, "N_POINTS", "251")
                              s == "nothing" ? nothing : parse(Int, s)
                          end
 const RESULTS_DIR      = get(ENV, "RESULTS_DIR", "benchmark_results")
+const COMPLEXITY       = parse(Int, get(ENV, "COMPLEXITY", "15"))
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
@@ -98,8 +99,8 @@ end
 const TEST_OPTIONS = SymbolicRegressionODE.ODERegressionOptions(
     niterations_derivative  = 150,
     niterations_integration = _NITER_INTEGRATION,
-    complexity_derivative   = 15,
-    complexity_integration  = 15,
+    complexity_derivative   = COMPLEXITY,
+    complexity_integration  = COMPLEXITY,
     binary_operators  = (+, *, -, /),
     unary_operators   = (square, inv, sqrtp),
     parallelism       = :multithreading,
