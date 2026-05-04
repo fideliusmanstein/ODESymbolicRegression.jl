@@ -76,20 +76,38 @@ function discover_ode_system(
         println()
     end
     
+    t_total_start = time()
+
     # Stage 1: Discover derivatives using ALL trajectories
+    t_stage1_start = time()
     derivative_candidates = discover_derivatives(experiments, ode_options)
-    
+    time_stage1 = time() - t_stage1_start
+
     # Stage 2: Refine with integration-based loss using ALL trajectories
-    best_trees, integration_loss, best_indices, initial_trees, initial_loss = refine_with_integration(
+    best_trees, integration_loss, best_indices, initial_trees, initial_loss,
+        time_combination_search, time_stage2_sr = refine_with_integration(
         derivative_candidates, experiments, ode_options
     )
-    
+
+    time_total = time() - t_total_start
+
+    if ode_options.verbose
+        println("\nTotal wall time: ", round(time_total, digits=2), "s",
+                "  (stage 1: ", round(time_stage1, digits=2), "s",
+                "  combination search: ", round(time_combination_search, digits=2), "s",
+                "  stage 2 SR: ", round(time_stage2_sr, digits=2), "s)")
+    end
+
     return (
-        derivative_candidates = derivative_candidates,
-        best_trees = best_trees,
-        integration_loss = integration_loss,
-        best_indices = best_indices,
-        initial_trees = initial_trees,
-        initial_loss = initial_loss
+        derivative_candidates    = derivative_candidates,
+        best_trees               = best_trees,
+        integration_loss         = integration_loss,
+        best_indices             = best_indices,
+        initial_trees            = initial_trees,
+        initial_loss             = initial_loss,
+        time_total               = time_total,
+        time_stage1              = time_stage1,
+        time_combination_search  = time_combination_search,
+        time_stage2_sr           = time_stage2_sr,
     )
 end

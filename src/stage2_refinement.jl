@@ -406,6 +406,7 @@ function refine_with_integration(
         println("Finding best initial combination...")
     end
 
+    t_combination_start = time()
     if ode_options.combination_method == :knee_point
         initial_trees, initial_loss, best_indices = find_initial_by_knee_point(
             filtered_candidates, sr_options, loss_config, verbose
@@ -415,12 +416,15 @@ function refine_with_integration(
             filtered_candidates, loss_config, verbose
         )
     end
+    time_combination_search = time() - t_combination_start
     
     if verbose
         println("  Initial loss: ", round(initial_loss, sigdigits=4))
+        println("  Combination search time: ", round(time_combination_search, digits=2), "s")
     end
     
     # Iteratively refine equations if requested
+    t_stage2_sr_start = time()
     if ode_options.niterations_integration > 0 && initial_trees !== nothing
         if verbose
             println("\nRefining equations with real measured data...")
@@ -438,6 +442,7 @@ function refine_with_integration(
         best_trees = initial_trees
         best_loss = initial_loss
     end
+    time_stage2_sr = time() - t_stage2_sr_start
     
     if verbose
         println("\n" * "="^80)
@@ -450,10 +455,13 @@ function refine_with_integration(
             println("  ⚠ No valid equations found (all combinations had infinite integration loss)")
         end
         println("Integration loss: ", round(best_loss, sigdigits=4))
+        println("  Time — combination search: ", round(time_combination_search, digits=2), "s")
+        println("  Time — stage 2 SR:         ", round(time_stage2_sr, digits=2), "s")
         println("="^80)
     end
     
-    return best_trees, best_loss, best_indices, initial_trees, initial_loss
+    return best_trees, best_loss, best_indices, initial_trees, initial_loss,
+           time_combination_search, time_stage2_sr
 end
 
 
@@ -518,32 +526,45 @@ function extract_training_data_from_experiments(
 end
 
 """
-    run_symbolic_regression(features, targets, ode_options, state_idx) -> pareto_frontier
+    run_symbolic_regression(features, targets, ode_options, state_idx, current_trees, loss_config) -> pareto_frontier
 
-Run symbolic regression search and return Pareto frontier of candidate equations.
+Run symbolic regression with integration loss as the fitness function and return
+the Pareto frontier of candidate equations.
+
+The `targets` argument is kept for API consistency but is not used; the fitness
+function evaluates candidates by ODE integration against `loss_config`.
 """
 function run_symbolic_regression(
     features::AbstractMatrix,
     targets::Vector,
     ode_options::ODERegressionOptions,
-    state_idx::Int
+    state_idx::Int,
+    current_trees::Vector,
+    loss_config::IntegrationLoss
 )
-    search_options = SymbolicRegression.Options(;
-        binary_operators=ode_options.binary_operators,
-        unary_operators=ode_options.unary_operators,
-        maxsize=ode_options.complexity_integration,
-        seed=ode_options.seed + state_idx
+    int_loss_fn = make_integration_loss_fn(
+        current_trees, state_idx, loss_config, ode_options
     )
-    
+    search_options = SymbolicRegression.Options(;
+        binary_operators      = ode_options.binary_operators,
+        unary_operators       = ode_options.unary_operators,
+        maxsize               = ode_options.complexity_integration,
+        ncycles_per_iteration  = ode_options.sr_ncycles_per_iteration,
+        population_size        = ode_options.sr_population_size,
+        populations            = ode_options.sr_populations,
+        tournament_selection_n = ode_options.sr_tournament_selection_n,
+        seed                   = ode_options.seed + state_idx,
+        loss_function          = int_loss_fn
+    )
+    y_dummy = zeros(Float32, size(features, 2))
     hof = with_logger(NullLogger()) do
         equation_search(
-            features, targets;
-            options=search_options,
-            niterations=ode_options.niterations_integration,
-            parallelism=ode_options.parallelism
+            features, y_dummy;
+            options     = search_options,
+            niterations = ode_options.niterations_integration,
+            parallelism = ode_options.parallelism
         )
     end
-    
     return calculate_pareto_frontier(hof)
 end
 
@@ -688,8 +709,11 @@ function refine_single_equation(
         return nothing, Inf
     end
     
-    # Run symbolic regression on real data
-    pareto_frontier = run_symbolic_regression(features, targets, ode_options, state_idx)
+    # Run symbolic regression with integration loss
+    pareto_frontier = run_symbolic_regression(
+        features, targets, ode_options, state_idx,
+        trees,       # current system trees for ODE integration
+        loss_config) # measurement trajectories
     
     # Select best candidate by integration loss
     return select_best_candidate_by_integration_loss(pareto_frontier, trees, state_idx, loss_config, ode_options)

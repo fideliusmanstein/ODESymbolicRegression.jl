@@ -63,6 +63,41 @@ function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "hyp
     return nothing
 end
 
+function run_all_analyses_both()
+    legacy_results = normpath(joinpath(@__DIR__, "..", "hyperparameter_search"))
+    legacy_output = joinpath(@__DIR__, "outputs")
+    additional_results = normpath(joinpath(@__DIR__, "..", "additional_hs_searches"))
+    additional_output = joinpath(@__DIR__, "additional_outputs")
+
+    println("[analysis] running legacy sweep analyses")
+    run_all_analyses(results_dir = legacy_results, output_dir = legacy_output)
+
+    println("[analysis] running additional sweep analyses")
+    run_all_analyses(results_dir = additional_results, output_dir = additional_output)
+
+    println("[analysis] both analysis runs completed")
+
+    # Copy all images to overleaf_images, preserving outputs structure
+    overleaf_dir = normpath(joinpath(@__DIR__, "..", "overleaf_images"))
+    mkpath(overleaf_dir)
+    for base in (legacy_output, additional_output)
+        # Only copy if directory exists
+        isdir(base) || continue
+        for (root, dirs, files) in walkdir(base)
+            for f in files
+                if endswith(f, ".png") || endswith(f, ".jpg") || endswith(f, ".jpeg") || endswith(f, ".pdf") || endswith(f, ".svg") || endswith(f, ".eps")
+                    rel = joinpath(splitpath(root)[end-1:end]...)
+                    dest_dir = joinpath(overleaf_dir, rel)
+                    mkpath(dest_dir)
+                    cp(joinpath(root, f), joinpath(dest_dir, f); force=true)
+                end
+            end
+        end
+    end
+    println("[analysis] images copied to: $overleaf_dir")
+    return nothing
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_all_analyses()
+    run_all_analyses_both()
 end

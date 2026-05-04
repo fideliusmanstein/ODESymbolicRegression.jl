@@ -22,9 +22,11 @@ Manifest.toml
 
 # Output files
 outputs/
+additional_outputs/
 benchmark_results/
 benchmark_output/
 hyperparameter_search/
+additional_hs_searches/
 thesis_figures/
 analysis_exports/
 server_results/

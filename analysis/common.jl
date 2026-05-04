@@ -15,16 +15,63 @@ function ensure_output_dirs(base_output_dir::AbstractString)
 end
 
 function parse_run_meta(filename::AbstractString)
+    # Legacy format:
+    #   hp_<knee|search>_noiseX_ptsN_trajT_results_YYYYMMDD_HHMMSS.<ext>
     m = match(r"^(hp_(knee|search)_noise([0-9_]+)_pts(\d+)_traj(\d+))_results_(\d{8}_\d{6})\.(txt|csv|json)$", filename)
+    if m !== nothing
+        run_key = m.captures[1]
+        mode = m.captures[2]
+        noise = parse(Float64, replace(m.captures[3], "_" => "."))
+        n_points = parse(Int, m.captures[4])
+        trajectories = parse(Int, m.captures[5])
+        timestamp = m.captures[6]
+        ext = m.captures[7]
+
+        return (
+            run_key = run_key,
+            mode = mode,
+            noise = noise,
+            n_points = n_points,
+            trajectories = trajectories,
+            timestamp = timestamp,
+            ext = ext,
+        )
+    end
+
+    # Additional structured searches format:
+    #   hp_g1_noiseX_ptsN_trajT_results_...      -> mode="knee"
+    #   hp_g2_noiseX_cxC_niterI_results_...      -> mode="knee"
+    #   hp_g3_noiseX_ops_<ops>_results_...       -> mode="knee"
+    m = match(r"^(hp_g(\d)_noise([0-9_]+)_(.*))_results_(\d{8}_\d{6})\.(txt|csv|json)$", filename)
     m === nothing && return nothing
 
     run_key = m.captures[1]
-    mode = m.captures[2]
+    group_id = m.captures[2]
     noise = parse(Float64, replace(m.captures[3], "_" => "."))
-    n_points = parse(Int, m.captures[4])
-    trajectories = parse(Int, m.captures[5])
-    timestamp = m.captures[6]
-    ext = m.captures[7]
+    tail = m.captures[4]
+    timestamp = m.captures[5]
+    ext = m.captures[6]
+
+    # Keep existing analysis schema by mapping unavailable dimensions to
+    # medium defaults used for fixed settings in the sweep script.
+    n_points = 250
+    trajectories = 10
+    mode = "knee"
+
+    if group_id == "1"
+        g1 = match(r"^pts(\d+)_traj(\d+)$", tail)
+        g1 === nothing && return nothing
+        n_points = parse(Int, g1.captures[1])
+        trajectories = parse(Int, g1.captures[2])
+    elseif group_id == "2"
+        g2 = match(r"^cx(\d+)_niter(\d+)$", tail)
+        g2 === nothing && return nothing
+    elseif group_id == "3"
+        g3 = match(r"^ops_(standard|powc_only|powc_full)$", tail)
+        g3 === nothing && return nothing
+    else
+        return nothing
+    end
 
     return (
         run_key = run_key,
@@ -182,6 +229,31 @@ function build_manifest(results_dir::AbstractString)
             has_exception_trace = txt_meta.has_exception_trace,
             failure_class = failure_class,
         ))
+    end
+
+    if isempty(rows)
+        return DataFrame(
+            run_key = String[],
+            mode = String[],
+            noise = Float64[],
+            n_points = Int[],
+            trajectories = Int[],
+            txt_path = Union{Missing,String}[],
+            csv_path = Union{Missing,String}[],
+            json_path = Union{Missing,String}[],
+            has_txt = Bool[],
+            has_csv = Bool[],
+            has_json = Bool[],
+            has_final_summary = Bool[],
+            has_end_timestamp = Bool[],
+            completed_run = Bool[],
+            problems_started = Int[],
+            problems_finished = Int[],
+            last_problem_started = Union{Missing,String}[],
+            last_problem_finished = Union{Missing,String}[],
+            has_exception_trace = Bool[],
+            failure_class = String[],
+        )
     end
 
     return sort!(DataFrame(rows), [:mode, :noise, :n_points, :trajectories])

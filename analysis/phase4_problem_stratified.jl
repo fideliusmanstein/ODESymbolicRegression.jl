@@ -37,7 +37,7 @@ function run_phase4(df_analysis::DataFrame, output_dir::AbstractString)
 
     xpos = 1:length(buckets)
     width = 0.35
-    offsets = range(-width / 2, width / 2, length = length(modes))
+    offsets = length(modes) == 1 ? [0.0] : collect(range(-width / 2, width / 2, length = length(modes)))
 
     for (j, mode) in enumerate(modes)
         ys = Float64[]

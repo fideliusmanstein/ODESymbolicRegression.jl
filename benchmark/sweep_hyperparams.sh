@@ -28,6 +28,10 @@ NUM_TRAJ_LIST=(1 5)
 # Fixed settings
 RESULTS_DIR="hyperparameter_search"
 
+# Set to true to skip the additional hyperparameter searches (groups 1-3)
+# and only run the base noise x n_points x combo x traj grid.
+SKIP_ADDITIONAL=true
+
 # Additional structured hyperparameter searches (3 independent groups, 21 jobs total)
 # Medium fixed values: noise=0.01, n_points=250, n_traj=10, cx=15, niter=150, ops=standard
 # All groups use combo_mode=knee
@@ -68,19 +72,23 @@ echo "  Num trajectories  : ${NUM_TRAJ_LIST[*]}"
 echo "  Results dir       : $RESULTS_DIR"
 echo "  Total jobs        : $TOTAL"
 echo ""
-echo "Additional hyperparameter searches (3 groups)"
-echo "  Noise level       : $ADDITIONAL_NOISE"
-echo "  Combo mode        : $ADDITIONAL_COMBO"
-echo "  Results dir       : $ADDITIONAL_RESULTS_DIR"
-echo "  Group 1 (pts x traj) : pts=${G1_N_POINTS[*]}, traj=${G1_N_TRAJ[*]}  ($N_ADDITIONAL_G1 jobs)"
-echo "  Group 2 (cx x niter) : cx=${G2_COMPLEXITY[*]}, niter=${G2_NITER[*]}  ($N_ADDITIONAL_G2 jobs)"
-echo "  Group 3 (ops)        : ${G3_OPS[*]}  ($N_ADDITIONAL_G3 jobs)"
-echo "  Total additional jobs: $ADDITIONAL_TOTAL"
+if [[ "$SKIP_ADDITIONAL" == true ]]; then
+    echo "Additional hyperparameter searches: SKIPPED (SKIP_ADDITIONAL=true)"
+else
+    echo "Additional hyperparameter searches (3 groups)"
+    echo "  Noise level       : $ADDITIONAL_NOISE"
+    echo "  Combo mode        : $ADDITIONAL_COMBO"
+    echo "  Results dir       : $ADDITIONAL_RESULTS_DIR"
+    echo "  Group 1 (pts x traj) : pts=${G1_N_POINTS[*]}, traj=${G1_N_TRAJ[*]}  ($N_ADDITIONAL_G1 jobs)"
+    echo "  Group 2 (cx x niter) : cx=${G2_COMPLEXITY[*]}, niter=${G2_NITER[*]}  ($N_ADDITIONAL_G2 jobs)"
+    echo "  Group 3 (ops)        : ${G3_OPS[*]}  ($N_ADDITIONAL_G3 jobs)"
+    echo "  Total additional jobs: $ADDITIONAL_TOTAL"
+fi
 echo ""
 
 mkdir -p benchmark_output
 mkdir -p "$RESULTS_DIR"
-mkdir -p "$ADDITIONAL_RESULTS_DIR"
+[[ "$SKIP_ADDITIONAL" == false ]] && mkdir -p "$ADDITIONAL_RESULTS_DIR"
 
 SKIPPED=0
 ADDITIONAL_SKIPPED=0
@@ -121,6 +129,7 @@ done
 # ---------------------------------------------------------------------------
 # Group 1: n_points x n_trajectories  (fix cx=15, niter=150, ops=standard)
 # ---------------------------------------------------------------------------
+if [[ "$SKIP_ADDITIONAL" == false ]]; then
 echo ""
 echo "Group 1: n_points x n_trajectories"
 for n_pts in "${G1_N_POINTS[@]}"; do
@@ -203,6 +212,12 @@ for ops in "${G3_OPS[@]}"; do
 
 done
 
+fi  # end SKIP_ADDITIONAL == false
+
 echo ""
 echo "Submitted $(( TOTAL - SKIPPED )) of $TOTAL base jobs ($SKIPPED skipped). Results will appear in $RESULTS_DIR/"
-echo "Submitted $(( ADDITIONAL_TOTAL - ADDITIONAL_SKIPPED )) of $ADDITIONAL_TOTAL additional jobs ($ADDITIONAL_SKIPPED skipped). Results will appear in $ADDITIONAL_RESULTS_DIR/"
+if [[ "$SKIP_ADDITIONAL" == false ]]; then
+    echo "Submitted $(( ADDITIONAL_TOTAL - ADDITIONAL_SKIPPED )) of $ADDITIONAL_TOTAL additional jobs ($ADDITIONAL_SKIPPED skipped). Results will appear in $ADDITIONAL_RESULTS_DIR/"
+else
+    echo "Additional searches skipped. Set SKIP_ADDITIONAL=false to enable."
+fi

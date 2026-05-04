@@ -151,3 +151,115 @@ function evaluate_ode_system(trees::Vector, loss_config::IntegrationLoss)
         return Inf  # All trajectories failed
     end
 end
+
+# =============================================================================
+# Stage 2 Integration-Loss SR
+# =============================================================================
+
+"""
+    _short_integration_loss(trees, loss_config, short_frac) -> Float64
+
+Evaluate integration loss on a truncated prefix of each trajectory using a
+cheap explicit solver (Tsit5, loose tolerances). Used as a fast screening gate
+before the full accurate solve.
+"""
+function _short_integration_loss(trees, loss_config::IntegrationLoss, short_frac::Float64)
+    total = 0.0
+    valid = 0
+    for trajectory in loss_config.trajectories
+        t_full  = trajectory[:t]
+        X_obs   = trajectory[:X_observed]
+        inputs  = get(trajectory, :inputs, Dict())
+        n_cut   = max(2, round(Int, short_frac * length(t_full)))
+        t_short = t_full[1:n_cut]
+        X_short = X_obs[1:n_cut, :]
+        x0      = X_obs[1, :]
+        tspan   = (t_short[1], t_short[end])
+        input_interps = setup_input_interpolations(t_full, inputs)
+        ode_fn  = create_ode_function(trees, input_interps)
+        try
+            prob = ODEProblem(ode_fn, x0, tspan)
+            sol  = solve(prob, Tsit5();
+                         saveat   = t_short,
+                         maxiters = 10^5,
+                         abstol   = 1e-2,
+                         reltol   = 1e-2,
+                         verbose  = false)
+            if SciMLBase.successful_retcode(sol) && length(sol.u) == n_cut
+                X_pred = hcat([sol.u[i] for i in 1:n_cut]...)'
+                if all(isfinite, X_pred)
+                    total += sum((X_pred .- X_short).^2) / length(X_pred)
+                    valid += 1
+                end
+            end
+        catch
+            return Inf
+        end
+    end
+    return valid > 0 ? total / valid : Inf
+end
+
+"""
+    make_integration_loss_fn(fixed_trees, state_idx, loss_config, ode_options) -> Function
+
+Return a SymbolicRegression.jl-compatible loss closure that evaluates each
+candidate expression via ODE integration rather than derivative MSE.
+
+The closure uses a three-phase evaluation strategy:
+  Phase 0 — complexity gate: reject trees above `complexity_threshold` immediately.
+  Phase 1 — short cheap solve: Tsit5 on the first `stage2_short_window_fraction`
+             of the trajectory with loose tolerances; reject if MSE exceeds
+             `stage2_short_loss_threshold`.
+  Phase 2 — full accurate solve: AutoTsit5(Rosenbrock23) on the full trajectory.
+
+# Arguments
+- `fixed_trees`: current best expression trees for all states
+- `state_idx`: which state's tree is being replaced by the candidate
+- `loss_config`: IntegrationLoss holding the measurement trajectories
+- `ode_options`: ODERegressionOptions (reads complexity_threshold,
+  stage2_short_window_fraction, stage2_short_loss_threshold)
+"""
+function make_integration_loss_fn(
+    fixed_trees::Vector,
+    state_idx::Int,
+    loss_config::IntegrationLoss,
+    ode_options::ODERegressionOptions
+)
+    return function(tree, dataset, options)
+
+        # Phase 0: complexity gate
+        if compute_complexity(tree, options) > ode_options.complexity_threshold
+            return Inf32
+        end
+
+        # Wrap tree: SymbolicRegression.jl passes its internal node type during
+        # search; create_ode_function needs a callable Expression.
+        wrapped = if tree isa SymbolicRegression.Expression
+            tree
+        else
+            SymbolicRegression.Expression(tree;
+                operators      = options.operators,
+                variable_names = dataset.variable_names)
+        end
+
+        test_trees = copy(fixed_trees)
+        test_trees[state_idx] = wrapped
+
+        # Phase 1: short cheap solve
+        short_loss = _short_integration_loss(
+            test_trees, loss_config, ode_options.stage2_short_window_fraction
+        )
+        if short_loss >= ode_options.stage2_short_loss_threshold
+            return Inf32
+        end
+
+        # Phase 2: full accurate solve
+        full_loss = try
+            evaluate_ode_system(test_trees, loss_config)
+        catch
+            Inf
+        end
+
+        return isfinite(full_loss) ? Float32(full_loss) : Inf32
+    end
+end
