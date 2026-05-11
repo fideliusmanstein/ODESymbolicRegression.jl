@@ -95,10 +95,14 @@ for combo_mode in "${COMBO_MODES[@]}"; do
                     fi
 
                     # Skip if the job is already submitted or running under the same name.
-                    if command -v squeue >/dev/null 2>&1 && squeue -h -u "${USER:-$(whoami)}" -n "$job_name" >/dev/null 2>&1; then
-                        echo "  Skipping:   $job_name  (already in queue)"
-                        (( SKIPPED++ )) || true
-                        continue
+                    # NOTE: squeue exits 0 even when there are no matches, so we must test output.
+                    if command -v squeue >/dev/null 2>&1; then
+                        queue_match=$(squeue -h -u "${USER:-$(whoami)}" -n "$job_name" | head -n 1 || true)
+                        if [[ -n "$queue_match" ]]; then
+                            echo "  Skipping:   $job_name  (already in queue)"
+                            (( SKIPPED++ )) || true
+                            continue
+                        fi
                     fi
 
                     echo "  Submitting: $job_name"
