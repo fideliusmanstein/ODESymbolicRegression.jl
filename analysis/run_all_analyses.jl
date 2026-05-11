@@ -7,6 +7,30 @@ include(joinpath(@__DIR__, "phase4_problem_stratified.jl"))
 include(joinpath(@__DIR__, "phase5_decision_outputs.jl"))
 include(joinpath(@__DIR__, "phase6_threshold_correctness.jl"))
 include(joinpath(@__DIR__, "phase7_initial_final_equation_changes.jl"))
+include(joinpath(@__DIR__, "phase8_trajectory_examples.jl"))
+include(joinpath(@__DIR__, "phase9_discovery_time_effects.jl"))
+
+function copy_results_for_overleaf(legacy_output::AbstractString, additional_output::AbstractString)
+    # Copy all images to overleaf_images, preserving outputs structure
+    overleaf_dir = normpath(joinpath(@__DIR__, "..", "overleaf_images"))
+    mkpath(overleaf_dir)
+    for base in (legacy_output, additional_output)
+        # Only copy if directory exists
+        isdir(base) || continue
+        for (root, dirs, files) in walkdir(base)
+            for f in files
+                if endswith(f, ".png") || endswith(f, ".jpg") || endswith(f, ".jpeg") || endswith(f, ".pdf") || endswith(f, ".svg") || endswith(f, ".eps")
+                    rel = joinpath(splitpath(root)[end-1:end]...)
+                    dest_dir = joinpath(overleaf_dir, rel)
+                    mkpath(dest_dir)
+                    cp(joinpath(root, f), joinpath(dest_dir, f); force=true)
+                end
+            end
+        end
+    end
+    println("[analysis] images copied to: $overleaf_dir")
+    return nothing
+end
 
 function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
                             output_dir = joinpath(@__DIR__, "outputs"))
@@ -42,13 +66,16 @@ function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "ser
     println("[analysis] phase 7: knee initial vs final equation changes")
     run_phase7(phase0.manifest, output_dir)
 
+    println("[analysis] phase 8: trajectory comparison examples")
+    run_phase8(phase0.manifest, output_dir)
+
     # Build artifact index
     index_lines = String[]
     push!(index_lines, "Analysis Artifacts Index")
     push!(index_lines, "Generated: $(Dates.now())")
     push!(index_lines, "")
 
-    for phase in ("phase0", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6", "phase7")
+    for phase in ("phase0", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6", "phase7", "phase8")
         phase_path = joinpath(output_dir, phase)
         push!(index_lines, "[$phase]")
         for f in sort(readdir(phase_path))
@@ -77,28 +104,73 @@ function run_all_analyses_both()
 
     println("[analysis] both analysis runs completed")
 
-    # Copy all images to overleaf_images, preserving outputs structure
-    overleaf_dir = normpath(joinpath(@__DIR__, "..", "overleaf_images"))
-    mkpath(overleaf_dir)
-    for base in (legacy_output, additional_output)
-        # Only copy if directory exists
-        isdir(base) || continue
-        for (root, dirs, files) in walkdir(base)
-            for f in files
-                if endswith(f, ".png") || endswith(f, ".jpg") || endswith(f, ".jpeg") || endswith(f, ".pdf") || endswith(f, ".svg") || endswith(f, ".eps")
-                    rel = joinpath(splitpath(root)[end-1:end]...)
-                    dest_dir = joinpath(overleaf_dir, rel)
-                    mkpath(dest_dir)
-                    cp(joinpath(root, f), joinpath(dest_dir, f); force=true)
-                end
-            end
-        end
-    end
-    println("[analysis] images copied to: $overleaf_dir")
+    copy_results_for_overleaf(legacy_output, additional_output)
+    return nothing
+end
+
+
+function run_phase1_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
+                           output_dir = joinpath(@__DIR__, "outputs"))
+    ensure_output_dirs(output_dir)
+    println("[analysis] phase 0: building manifest")
+    phase0 = run_phase0(results_dir, output_dir)
+    println("[analysis] loading csv results")
+    df_all = load_results_table(phase0.manifest)
+    println("[analysis] phase 1: primary metrics")
+    run_phase1(phase0.manifest, df_all, output_dir)
+    println("[analysis] done. outputs at: $output_dir")
+    return nothing
+end
+
+function run_phase6_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
+                           output_dir = joinpath(@__DIR__, "outputs"))
+    ensure_output_dirs(output_dir)
+    println("[analysis] phase 0: integrity + diagnostics")
+    phase0 = run_phase0(results_dir, output_dir)
+    println("[analysis] loading csv results")
+    df_all = load_results_table(phase0.manifest)
+    println("[analysis] phase 1: primary metrics")
+    phase1 = run_phase1(phase0.manifest, df_all, output_dir)
+    println("[analysis] phase 6: threshold correctness")
+    run_phase6(phase1.df_strict, output_dir)
+    println("[analysis] done. outputs at: $output_dir")
+    return nothing
+end
+
+function run_phase9_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
+                           output_dir = joinpath(@__DIR__, "outputs"))
+    ensure_output_dirs(output_dir)
+    println("[analysis] phase 0: building manifest")
+    phase0 = run_phase0(results_dir, output_dir)
+    println("[analysis] loading csv results")
+    df_all = load_results_table(phase0.manifest)
+    println("[analysis] phase 1: strict dataset")
+    phase1 = run_phase1(phase0.manifest, df_all, output_dir)
+    println("[analysis] phase 9: discovery time effects")
+    run_phase9(phase1.df_strict, output_dir)
+    println("[analysis] done. outputs at: $output_dir")
+    return nothing
+end
+
+function run_phase8_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
+                           output_dir = joinpath(@__DIR__, "outputs"))
+    ensure_output_dirs(output_dir)
+    println("[analysis] phase 0: building manifest (needed for phase 8)")
+    phase0 = run_phase0(results_dir, output_dir)
+    println("[analysis] phase 8: trajectory comparison examples")
+    run_phase8(phase0.manifest, output_dir)
+    println("[analysis] done. outputs at: $output_dir")
     return nothing
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
+    # run_phase1_only()
+    # run_phase9_only()
+    # run_phase8_only()
     run_all_analyses()
     # run_all_analyses_both()
+    copy_results_for_overleaf(
+        joinpath(@__DIR__, "outputs"),
+        joinpath(@__DIR__, "additional_outputs")
+    )
 end

@@ -2,6 +2,52 @@ if !isdefined(Main, :summarize_combo_metrics)
     include(joinpath(@__DIR__, "common.jl"))
 end
 
+using JSON
+
+# ---------------------------------------------------------------------------
+# Helper: count functions with R² ≥ 0.95 per run
+# ---------------------------------------------------------------------------
+
+"""
+    _count_high_r2_functions(manifest) -> DataFrame
+
+Count how many equations across all problems in each run have R² ≥ 0.95.
+Returns DataFrame with columns: run_key, count_r2_95
+"""
+function _count_high_r2_functions(manifest::DataFrame)
+    run_counts = Dict{String, Int}()
+
+    for row in eachrow(manifest)
+        (row.has_json && row.completed_run) || continue
+
+        json_data = try
+            JSON.parsefile(row.json_path)
+        catch
+            continue
+        end
+
+        run_key_str = String(row.run_key)
+        for (problem, pdata) in json_data
+            scores_raw = get(pdata, "equation_scores", nothing)
+            scores_raw === nothing && continue
+            
+            r2_scores = Float64[get(s, "r2", NaN) for s in scores_raw]
+            count_95 = count(r2 -> isfinite(r2) && r2 >= 0.95, r2_scores)
+            
+            if !haskey(run_counts, run_key_str)
+                run_counts[run_key_str] = 0
+            end
+            run_counts[run_key_str] += count_95
+        end
+    end
+
+    sort_order = sortperm(collect(values(run_counts)); rev=true)
+    run_keys = collect(keys(run_counts))[sort_order]
+    counts = collect(values(run_counts))[sort_order]
+    
+    return DataFrame(run_key = run_keys, count_r2_95 = counts)
+end
+
 function run_phase1(manifest::DataFrame, df_all::DataFrame, output_dir::AbstractString)
     phase_dir = joinpath(output_dir, "phase1")
     mkpath(phase_dir)
@@ -46,6 +92,50 @@ function run_phase1(manifest::DataFrame, df_all::DataFrame, output_dir::Abstract
     ax2.xticks = (xs, labels)
     ax2.xticklabelrotation = pi / 4
     save_plot(fig2, joinpath(phase_dir, "median_r2_by_combo.png"))
+
+    # Plot: top 12 median integration loss by combo (lower = better)
+    top_loss = sort(
+        filter(r -> isfinite(r.median_integration_loss), summary_strict),
+        :median_integration_loss,
+    )
+    n_show_loss = min(12, nrow(top_loss))
+    if n_show_loss > 0
+        shown_loss = top_loss[1:n_show_loss, :]
+        xs_l = 1:n_show_loss
+        ys_l = shown_loss.median_integration_loss
+        labels_l = [combo_label(r) for r in eachrow(shown_loss)]
+
+        fig3 = Figure(size = (1300, 600))
+        ax3 = Axis(fig3[1, 1],
+            title = "Best Combinations by Median Integration Loss (strict, lower = better)",
+            xlabel = "Combination",
+            ylabel = "Median integration loss",
+            yscale = log10)
+        barplot!(ax3, xs_l, ys_l)
+        ax3.xticks = (xs_l, labels_l)
+        ax3.xticklabelrotation = pi / 4
+        save_plot(fig3, joinpath(phase_dir, "median_integration_loss_by_combo.png"))
+    end
+
+    # Plot: count of functions with R² ≥ 0.95 per run
+    df_r2_counts = _count_high_r2_functions(manifest)
+    if nrow(df_r2_counts) > 0
+        n_show_r2 = min(20, nrow(df_r2_counts))
+        shown_r2 = df_r2_counts[1:n_show_r2, :]
+        xs_r2 = 1:n_show_r2
+        ys_r2 = shown_r2.count_r2_95
+        labels_r2 = shown_r2.run_key
+
+        fig4 = Figure(size = (1400, 600))
+        ax4 = Axis(fig4[1, 1],
+            title = "Number of Functions with R² ≥ 0.95 per Run (all problems)",
+            xlabel = "Run",
+            ylabel = "Count of functions with R² ≥ 0.95")
+        barplot!(ax4, xs_r2, ys_r2)
+        ax4.xticks = (xs_r2, labels_r2)
+        ax4.xticklabelrotation = pi / 4
+        save_plot(fig4, joinpath(phase_dir, "count_r2_095_by_run.png"))
+    end
 
     lines = String[]
     push!(lines, "Phase 1 Report - Primary Outcome Metrics")

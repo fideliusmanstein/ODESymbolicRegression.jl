@@ -227,7 +227,7 @@ function _count_equations_ge_threshold(json_path::AbstractString, threshold::Rea
     return n
 end
 
-function _best_run_by_equation_threshold(manifest::DataFrame, threshold::Real; mode = nothing)
+function _best_run_by_equation_threshold(manifest::DataFrame, threshold::Real; mode = nothing, noise_values = nothing)
     if nrow(manifest) == 0 || !("json_path" in names(manifest))
         return nothing
     end
@@ -235,6 +235,10 @@ function _best_run_by_equation_threshold(manifest::DataFrame, threshold::Real; m
     rows = NamedTuple[]
     for row in eachrow(manifest)
         if mode !== nothing && row.mode != mode
+            continue
+        end
+
+        if noise_values !== nothing && !(row.noise in noise_values)
             continue
         end
 
@@ -339,6 +343,9 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
     best_knee_run_key_095 = nothing
     best_knee_equation_count_095 = missing
     best_knee_json_path_095 = nothing
+    best_noisy_run_key_095 = nothing
+    best_noisy_equation_count_095 = missing
+    best_noisy_json_path_095 = nothing
 
     manifest_path = joinpath(output_dir, "phase0", "manifest.csv")
     if isfile(manifest_path)
@@ -355,6 +362,13 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
             best_knee_run_key_095 = best_knee_row.run_key
             best_knee_equation_count_095 = best_knee_row.n_equations_ge_threshold
             best_knee_json_path_095 = best_knee_row.json_path
+        end
+
+        best_noisy_row = _best_run_by_equation_threshold(manifest, 0.95, noise_values = Set([0.01, 0.05]))
+        if best_noisy_row !== nothing
+            best_noisy_run_key_095 = best_noisy_row.run_key
+            best_noisy_equation_count_095 = best_noisy_row.n_equations_ge_threshold
+            best_noisy_json_path_095 = best_noisy_row.json_path
         end
     end
 
@@ -373,6 +387,10 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
 
     if best_knee_run_key_095 !== nothing && best_knee_json_path_095 !== nothing
         _plot_problem_stacked_correctness(best_knee_json_path_095, best_knee_run_key_095, joinpath(phase_dir, "problem_stacked_correctness_knee.png"))
+    end
+
+    if best_noisy_run_key_095 !== nothing && best_noisy_json_path_095 !== nothing
+        _plot_problem_stacked_correctness(best_noisy_json_path_095, best_noisy_run_key_095, joinpath(phase_dir, "problem_stacked_correctness_noisy.png"))
     end
 
     lines = String[]
@@ -429,6 +447,18 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
         end
         if best_knee_json_path_095 !== nothing
             push!(lines, "- source_json=$(best_knee_json_path_095)")
+        end
+    end
+
+    if best_noisy_run_key_095 !== nothing
+        push!(lines, "")
+        push!(lines, "Stacked problem plot run selection for noise 0.01 or 0.05 (R² >= 0.95 count criterion):")
+        push!(lines, "- selected run_key=$(best_noisy_run_key_095)")
+        if !ismissing(best_noisy_equation_count_095)
+            push!(lines, "- n_equations_with_r2_ge_0_95=$(best_noisy_equation_count_095)")
+        end
+        if best_noisy_json_path_095 !== nothing
+            push!(lines, "- source_json=$(best_noisy_json_path_095)")
         end
     end
 
