@@ -86,9 +86,26 @@ for combo_mode in "${COMBO_MODES[@]}"; do
 
                     noise_tag=$(echo "$noise" | tr '.' '_')
                     job_name="sp_${PROBLEM}_${combo_mode}_noise${noise_tag}_pts${n_pts}_traj${n_traj}_niter${niter}"
+                    legacy_job_name="sp_${PROBLEM}_noise${noise_tag}_pts${n_pts}_traj${n_traj}_niter${niter}"
 
                     # Skip if a result file for this combination already exists.
-                    if compgen -G "${RESULTS_DIR}/${job_name}_results_*.txt" > /dev/null 2>&1; then
+                    has_results=0
+                    if compgen -G "${RESULTS_DIR}/${job_name}_results_*.txt" > /dev/null 2>&1 || \
+                       compgen -G "${RESULTS_DIR}/${job_name}_results_*.json" > /dev/null 2>&1 || \
+                       compgen -G "${RESULTS_DIR}/${job_name}_results_*.csv" > /dev/null 2>&1; then
+                        has_results=1
+                    fi
+
+                    # Backward-compatibility: earlier knee0 runs used names without combo mode.
+                    if [[ "$combo_mode" == "knee0" ]]; then
+                        if compgen -G "${RESULTS_DIR}/${legacy_job_name}_results_*.txt" > /dev/null 2>&1 || \
+                           compgen -G "${RESULTS_DIR}/${legacy_job_name}_results_*.json" > /dev/null 2>&1 || \
+                           compgen -G "${RESULTS_DIR}/${legacy_job_name}_results_*.csv" > /dev/null 2>&1; then
+                            has_results=1
+                        fi
+                    fi
+
+                    if [[ $has_results -eq 1 ]]; then
                         echo "  Skipping:   $job_name  (result already exists)"
                         (( SKIPPED++ )) || true
                         continue
@@ -98,6 +115,9 @@ for combo_mode in "${COMBO_MODES[@]}"; do
                     # NOTE: squeue exits 0 even when there are no matches, so we must test output.
                     if command -v squeue >/dev/null 2>&1; then
                         queue_match=$(squeue -h -u "${USER:-$(whoami)}" -n "$job_name" | head -n 1 || true)
+                        if [[ -z "$queue_match" && "$combo_mode" == "knee0" ]]; then
+                            queue_match=$(squeue -h -u "${USER:-$(whoami)}" -n "$legacy_job_name" | head -n 1 || true)
+                        fi
                         if [[ -n "$queue_match" ]]; then
                             echo "  Skipping:   $job_name  (already in queue)"
                             (( SKIPPED++ )) || true
