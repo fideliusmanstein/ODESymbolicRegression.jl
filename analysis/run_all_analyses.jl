@@ -8,7 +8,7 @@ include(joinpath(@__DIR__, "phase5_decision_outputs.jl"))
 include(joinpath(@__DIR__, "phase6_threshold_correctness.jl"))
 include(joinpath(@__DIR__, "phase7_initial_final_equation_changes.jl"))
 
-function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "hyperparameter_search")),
+function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
                             output_dir = joinpath(@__DIR__, "outputs"))
     ensure_output_dirs(output_dir)
 
@@ -64,9 +64,9 @@ function run_all_analyses(; results_dir = normpath(joinpath(@__DIR__, "..", "hyp
 end
 
 function run_all_analyses_both()
-    legacy_results = normpath(joinpath(@__DIR__, "..", "hyperparameter_search"))
+    legacy_results = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search"))
     legacy_output = joinpath(@__DIR__, "outputs")
-    additional_results = normpath(joinpath(@__DIR__, "..", "additional_hs_searches"))
+    additional_results = normpath(joinpath(@__DIR__, "..", "server_results", "additional_hs_searches"))
     additional_output = joinpath(@__DIR__, "additional_outputs")
 
     println("[analysis] running legacy sweep analyses")
@@ -99,5 +99,6 @@ function run_all_analyses_both()
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_all_analyses_both()
+    run_all_analyses()
+    # run_all_analyses_both()
 end

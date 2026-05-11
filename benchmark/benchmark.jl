@@ -92,21 +92,34 @@ const NITER_DERIVATIVE  = parse(Int, get(ENV, "NITER_DERIVATIVE", "150"))
 const OPERATOR_SET      = get(ENV, "OPERATOR_SET", "standard")
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
-const PROBLEMS_OVERRIDE = nothing # Set to e.g. ["ss_5genes8"] or nothing
+const PROBLEMS_OVERRIDE = let s = get(ENV, "PROBLEMS_OVERRIDE", "")
+                              isempty(s) ? nothing : String.(split(s, ","))
+                          end
 
 # Resolve combo mode from ENV
+# "knee"   -> niterations_integration=100, combination_method=:knee_point
+# "knee0"  -> niterations_integration=0,   combination_method=:knee_point
+# "search" -> niterations_integration=0,   combination_method=:combination_search
 const _COMBO_MODE = get(ENV, "COMBO_MODE", "knee")
 const _NITER_INTEGRATION, _COMBINATION_METHOD = if _COMBO_MODE == "search"
     (0, :combination_search)
+elseif _COMBO_MODE == "knee0"
+    (0, :knee_point)
 else  # default: "knee"
     (100, :knee_point)
 end
 
 # Resolve operator set from ENV
+#   "standard"   → binary=(+,*,-,/),       unary=(square,inv,sqrtp)
+#   "square_inv" → binary=(+,*,-,/),       unary=(square,inv)
+#   "powc_only"  → binary=(+,*,-,/,powc),  unary=()
+#   "powc_full"  → binary=(+,*,-,/,powc),  unary=(square,inv,sqrtp)
 const _BINARY_OPS, _UNARY_OPS = if OPERATOR_SET == "powc_only"
     ((+, *, -, /, powc), ())
 elseif OPERATOR_SET == "powc_full"
     ((+, *, -, /, powc), (square, inv, sqrtp))
+elseif OPERATOR_SET == "square_inv"
+    ((+, *, -, /), (square, inv))
 else  # "standard"
     ((+, *, -, /), (square, inv, sqrtp))
 end
