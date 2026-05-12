@@ -302,6 +302,99 @@ function _plot_problem_stacked_correctness(json_path::AbstractString, selected_r
     save_plot(fig, outpath)
 end
 
+function _equation_r2_rows_from_json(json_path::AbstractString)
+    data = JSON.parsefile(json_path)
+    rows = NamedTuple[]
+
+    for problem_name in sort!(collect(keys(data)))
+        payload_any = data[problem_name]
+        payload = payload_any isa AbstractDict ? payload_any : Dict{String, Any}()
+        eq_scores = get(payload, "equation_scores", Any[])
+        n_eq = length(eq_scores)
+        n_eq == 0 && continue
+
+        for (i, s_any) in enumerate(eq_scores)
+            s = s_any isa AbstractDict ? s_any : Dict{String, Any}()
+            r2 = _safe_r2(get(s, "r2", NaN))
+            push!(rows, (
+                problem = String(problem_name),
+                eq_idx = i,
+                n_eq = n_eq,
+                r2 = r2,
+            ))
+        end
+    end
+
+    isempty(rows) && return DataFrame()
+    return DataFrame(rows)
+end
+
+function _r2_band_color(r2::Real)
+    if !isfinite(r2) || r2 < 0.50
+        return RGBf(0.84, 0.19, 0.15)
+    elseif r2 < 0.80
+        return RGBf(0.99, 0.85, 0.35)
+    elseif r2 < 0.95
+        return RGBf(0.65, 0.84, 0.33)
+    else
+        return RGBf(0.20, 0.63, 0.17)
+    end
+end
+
+function _plot_problem_equation_r2_scatter(json_path::AbstractString, selected_run_key::AbstractString, outpath::AbstractString)
+    rows = _equation_r2_rows_from_json(json_path)
+    isempty(rows) && return nothing
+
+    # Keep the exact same problem ordering used by stacked correctness plots.
+    band_rows = _equation_band_rows_from_json(json_path)
+    band_order = sortperm(collect(zip(band_rows.r95_frac, band_rows.r80_frac, band_rows.r50_frac, band_rows.problem)), rev = true)
+    ordered_band_problems = String.(band_rows.problem[band_order])
+
+    present_problems = Set(String.(rows.problem))
+    problems = [p for p in ordered_band_problems if p in present_problems]
+
+    # Fallback/coverage: append any remaining problems not present in band rows.
+    for p in sort!(collect(present_problems))
+        p in problems || push!(problems, p)
+    end
+
+    problem_to_x = Dict(p => i for (i, p) in enumerate(problems))
+
+    xs = Float64[]
+    ys = Float64[]
+    cs = RGBf[]
+    for row in eachrow(rows)
+        x0 = problem_to_x[String(row.problem)]
+        spread = max(1, Int(row.n_eq))
+        jitter = 0.35 * (Float64(row.eq_idx) - (Float64(spread) + 1.0) / 2.0) / Float64(spread)
+        y_raw = Float64(row.r2)
+        y_plot = (isfinite(y_raw) && 0.0 <= y_raw <= 1.0) ? y_raw : 0.0
+        push!(xs, Float64(x0) + jitter)
+        push!(ys, y_plot)
+        push!(cs, _r2_band_color(y_raw))
+    end
+
+    fig = Figure(size = (max(1000, 40 * length(problems)), 650))
+    ax = Axis(fig[1, 1],
+        title = "Per-equation R² scatter by problem (best run)",
+        subtitle = "run_key = $(selected_run_key)",
+        xlabel = "Problem",
+        ylabel = "Equation R²",
+        limits = (nothing, (0.0, 1.0)))
+
+    hlines!(ax, [0.50]; color = :gray65, linestyle = :dot, linewidth = 1.2)
+    hlines!(ax, [0.80]; color = :gray55, linestyle = :dot, linewidth = 1.2)
+    hlines!(ax, [0.95]; color = :gray45, linestyle = :dash, linewidth = 1.2)
+    scatter!(ax, xs, ys; color = cs, markersize = 9)
+
+    ax.xticks = (collect(1:length(problems)), problems)
+    ax.xticklabelrotation = pi / 3
+    ax.xticklabelalign = (:right, :center)
+
+    save_plot(fig, outpath)
+    return nothing
+end
+
 function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; thresholds = CORRECTNESS_R2_THRESHOLDS)
     phase_dir = joinpath(output_dir, "phase6")
     mkpath(phase_dir)
@@ -383,14 +476,17 @@ function run_phase6(df_analysis::DataFrame, output_dir::AbstractString; threshol
 
     if best_run_key_095 !== nothing && best_json_path_095 !== nothing
         _plot_problem_stacked_correctness(best_json_path_095, best_run_key_095, joinpath(phase_dir, "problem_stacked_correctness.png"))
+        _plot_problem_equation_r2_scatter(best_json_path_095, best_run_key_095, joinpath(phase_dir, "problem_equation_r2_scatter.png"))
     end
 
     if best_knee_run_key_095 !== nothing && best_knee_json_path_095 !== nothing
         _plot_problem_stacked_correctness(best_knee_json_path_095, best_knee_run_key_095, joinpath(phase_dir, "problem_stacked_correctness_knee.png"))
+        _plot_problem_equation_r2_scatter(best_knee_json_path_095, best_knee_run_key_095, joinpath(phase_dir, "problem_equation_r2_scatter_knee.png"))
     end
 
     if best_noisy_run_key_095 !== nothing && best_noisy_json_path_095 !== nothing
         _plot_problem_stacked_correctness(best_noisy_json_path_095, best_noisy_run_key_095, joinpath(phase_dir, "problem_stacked_correctness_noisy.png"))
+        _plot_problem_equation_r2_scatter(best_noisy_json_path_095, best_noisy_run_key_095, joinpath(phase_dir, "problem_equation_r2_scatter_noisy.png"))
     end
 
     lines = String[]

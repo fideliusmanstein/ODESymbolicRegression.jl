@@ -35,7 +35,7 @@ end
 # Problems where the GT ODE uses external forcing inputs (x_{n+1}, x_{n+2}, ...),
 # making autonomous re-simulation of the discovered equations unreliable.
 const _PROBLEMS_WITH_INPUTS = Set([
-    "inhosc1", "inhosc2",
+    "inhosc1",
     "feedf1", "feedf2",
     "metabol1", "metabol2", "metabol3",
     "ss_feedf1", "ss_feedf2",
@@ -128,12 +128,15 @@ Return an in-place ODE function `(du, u, p, t)` built by parsing the equation
 strings at runtime.  Variable names x1 … xN are bound to u[1] … u[N].
 `square`, `sqrtp`, `powc` and `inv` are assumed to be defined in Main scope.
 """
-function _build_discovered_ode(eqs::Vector{String}, n_states::Int)
-    var_lines = join(["x$i = u[$i]" for i in 1:n_states], "\n        ")
-    du_lines  = join(["du[$i] = $(eqs[i])" for i in 1:n_states], "\n        ")
+function _build_discovered_ode(eqs::Vector{String}, n_states::Int;
+        extra_vars::Dict{String,Float64} = Dict{String,Float64}())
+    var_lines   = join(["x$i = u[$i]" for i in 1:n_states], "\n        ")
+    const_lines = join(["$k = $v" for (k, v) in sort(collect(extra_vars))], "\n        ")
+    du_lines    = join(["du[$i] = $(eqs[i])" for i in 1:n_states], "\n        ")
     fn_str = """
     (du, u, p, t) -> begin
         $var_lines
+        $const_lines
         $du_lines
         return nothing
     end
@@ -151,10 +154,11 @@ or `nothing` if the solve fails or diverges immediately.
 function _simulate_discovered(
     eqs::Vector{String},
     u0::Vector{Float64},
-    tspan::Tuple{Float64, Float64},
+    tspan::Tuple{Float64, Float64};
+    extra_vars::Dict{String,Float64} = Dict{String,Float64}(),
 )
     ode_fn! = try
-        _build_discovered_ode(eqs, length(eqs))
+        _build_discovered_ode(eqs, length(eqs); extra_vars = extra_vars)
     catch e
         @warn "phase8: could not build discovered ODE: $e"
         return nothing
@@ -205,14 +209,15 @@ function _plot_trajectory_comparison(
     eqs::Vector{String},
     integration_loss::Float64,
     label::String,
-    phase_dir::AbstractString,
+    phase_dir::AbstractString;
+    extra_vars::Dict{String,Float64} = Dict{String,Float64}(),
 )
     n_states = size(gt_X, 2)
 
     u0    = Float64.(gt_X[1, :])
     tspan = (gt_t[1], gt_t[end])
 
-    disc_result = _simulate_discovered(eqs, u0, tspan)
+    disc_result = _simulate_discovered(eqs, u0, tspan; extra_vars = extra_vars)
 
     # Layout
     n_cols = min(3, n_states)
@@ -236,10 +241,21 @@ function _plot_trajectory_comparison(
             ylabel  = "x$i(t)",
         )
 
+        # Compute y-axis limits from ground-truth ± 50%
+        gt_col    = gt_X[:, i]
+        gt_finite = filter(isfinite, gt_col)
+        if !isempty(gt_finite)
+            gt_min  = minimum(gt_finite)
+            gt_max  = maximum(gt_finite)
+            gt_span = gt_max - gt_min
+            pad     = 0.5 * max(gt_span, abs(gt_min) * 0.1, 1e-6)
+            ylims!(ax, gt_min - pad, gt_max + pad)
+        end
+
         # Ground-truth trajectory (solid blue, with dots on data points)
-        lines!(ax, gt_t, gt_X[:, i];
+        lines!(ax, gt_t, gt_col;
             color = :steelblue, linewidth = 2, label = "Ground truth")
-        scatter!(ax, gt_t, gt_X[:, i];
+        scatter!(ax, gt_t, gt_col;
             color = :steelblue, markersize = 5)
 
         # Discovered trajectory (dashed red)
@@ -285,7 +301,7 @@ end
 """
 function _load_gt(problem::String)
     exps = try
-        Main.BenchmarkSystems.load_problem(problem; noise_std = 0.0)
+        Main.BenchmarkSystems.load_problem(problem; noise_std = 0.0, n_points = 100)
     catch
         return nothing
     end
@@ -298,7 +314,22 @@ function _load_gt(problem::String)
     else
         Float64.(Matrix(X_raw))
     end
-    return gt_t, gt_X
+    # Build constant input substitutions for problems that have external forcing.
+    # Input names are sorted alphabetically and mapped to x{n_states+1}, x{n_states+2}, …
+    # (matching the convention used when building equation strings).
+    n_states = size(gt_X, 2)
+    extra_vars = Dict{String,Float64}()
+    if haskey(exp, :inputs)
+        input_dict = exp[:inputs]
+        sorted_keys = sort(collect(keys(input_dict)))
+        for (idx, k) in enumerate(sorted_keys)
+            vals = input_dict[k]
+            # Use the first value — inputs are piecewise-constant per experiment
+            v = vals isa AbstractVector ? Float64(first(vals)) : Float64(vals)
+            extra_vars["x$(n_states + idx)"] = v
+        end
+    end
+    return gt_t, gt_X, extra_vars
 end
 
 # ---------------------------------------------------------------------------
@@ -360,33 +391,33 @@ function run_phase8(manifest::DataFrame, output_dir::AbstractString)
     all_problems = collect(keys(best_run_per_problem))
 
     # ------------------------------------------------------------------
-    # Select the three showcase problems
+    # Select the three showcase problems (fixed override for thesis)
     # ------------------------------------------------------------------
-    # Good  : all equations R² ≥ threshold  (frac = 1.0)
-    good_candidates  = filter(p -> frac_good[p] >= 1.0, all_problems)
-    # Bad   : no  equation  R² ≥ threshold  (frac = 0.0)
-    bad_candidates   = filter(p -> frac_good[p] == 0.0, all_problems)
-    # Medium: everything in between, pick the one closest to 0.5
-    medium_candidates = filter(p -> 0.0 < frac_good[p] < 1.0, all_problems)
+    good_problem   = "gma_bifeedb1"
+    medium_problem = "inhosc2"
+    bad_problem    = "ss_5genes4"
 
-    # If exact buckets are empty, fall back to closest available
-    if isempty(good_candidates)
-        good_candidates = [argmax(p -> frac_good[p], all_problems)]
-    end
-    if isempty(bad_candidates)
-        bad_candidates = [argmin(p -> frac_good[p], all_problems)]
-    end
-    if isempty(medium_candidates)
-        remaining = filter(p -> p ∉ good_candidates && p ∉ bad_candidates, all_problems)
-        medium_candidates = isempty(remaining) ? good_candidates : remaining
+    for (role, prob) in [("good", good_problem), ("medium", medium_problem), ("bad", bad_problem)]
+        if prob ∉ keys(best_run_per_problem)
+            @warn "phase8: requested $role problem '$prob' not found in selected run — falling back to automatic selection"
+        end
     end
 
-    # Among good candidates, prefer the one with the highest n_states (more interesting)
-    good_problem  = argmax(p -> best_run_per_problem[p].n_states, good_candidates)
-    # Among bad candidates, prefer the one with the most states as well
-    bad_problem   = argmax(p -> best_run_per_problem[p].n_states, bad_candidates)
-    # Among medium candidates, pick the one whose frac_good is nearest 0.5
-    medium_problem = argmin(p -> abs(frac_good[p] - 0.5), medium_candidates)
+    # Fall back to automatic selection for any missing problem
+    if good_problem ∉ keys(best_run_per_problem) || medium_problem ∉ keys(best_run_per_problem) || bad_problem ∉ keys(best_run_per_problem)
+        good_candidates   = filter(p -> frac_good[p] >= 1.0, all_problems)
+        bad_candidates    = filter(p -> frac_good[p] == 0.0, all_problems)
+        medium_candidates = filter(p -> 0.0 < frac_good[p] < 1.0, all_problems)
+        isempty(good_candidates)   && (good_candidates   = [argmax(p -> frac_good[p], all_problems)])
+        isempty(bad_candidates)    && (bad_candidates    = [argmin(p -> frac_good[p], all_problems)])
+        if isempty(medium_candidates)
+            remaining = filter(p -> p ∉ good_candidates && p ∉ bad_candidates, all_problems)
+            medium_candidates = isempty(remaining) ? good_candidates : remaining
+        end
+        good_problem   ∉ keys(best_run_per_problem) && (good_problem   = argmax(p -> best_run_per_problem[p].n_states, good_candidates))
+        medium_problem ∉ keys(best_run_per_problem) && (medium_problem = argmin(p -> abs(frac_good[p] - 0.5), medium_candidates))
+        bad_problem    ∉ keys(best_run_per_problem) && (bad_problem    = argmax(p -> best_run_per_problem[p].n_states, bad_candidates))
+    end
 
     report_lines = String[
         "Phase 8 Report - Trajectory Example Plots",
@@ -416,7 +447,7 @@ function run_phase8(manifest::DataFrame, output_dir::AbstractString)
             @warn "phase8: could not load GT for $role example $problem"
             continue
         end
-        gt_t, gt_X = gt
+        gt_t, gt_X, extra_vars = gt
 
         r2_str = join(
             [isfinite(r2) ? string(round(r2; digits=2)) : "NaN" for r2 in chosen.r2_scores],
@@ -426,6 +457,9 @@ function run_phase8(manifest::DataFrame, output_dir::AbstractString)
             "$(uppercasefirst(role)) example: $problem  frac_good=$(round(frac_good[problem]; digits=2))  R²=[$(r2_str)]  loss=$(round(chosen.integration_loss; sigdigits=4))")
         push!(report_lines,
             "  run_key=$(chosen.run_key)  n_points=$(chosen.n_points)  noise=$(chosen.noise)  trajectories=$(chosen.trajectories)  mode=$(chosen.mode)")
+        if !isempty(extra_vars)
+            push!(report_lines, "  constant inputs: $(join(["$k=$(round(v;digits=4))" for (k,v) in sort(collect(extra_vars))], ", "))")
+        end
         push!(report_lines, "  equations: $(join(chosen.discovered_equations, " | "))")
         push!(report_lines, "")
 
@@ -433,7 +467,8 @@ function run_phase8(manifest::DataFrame, output_dir::AbstractString)
             problem, gt_t, gt_X,
             chosen.discovered_equations,
             chosen.integration_loss,
-            role, phase_dir,
+            role, phase_dir;
+            extra_vars = extra_vars,
         )
 
         @info "phase8: plotted $role example — $problem  R²=[$(r2_str)]"

@@ -152,6 +152,21 @@ function run_phase9_only(; results_dir = normpath(joinpath(@__DIR__, "..", "serv
     return nothing
 end
 
+function run_phase3_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
+                           output_dir = joinpath(@__DIR__, "outputs"))
+    ensure_output_dirs(output_dir)
+    println("[analysis] phase 0: building manifest")
+    phase0 = run_phase0(results_dir, output_dir)
+    println("[analysis] loading csv results")
+    df_all = load_results_table(phase0.manifest)
+    println("[analysis] phase 1: strict dataset")
+    phase1 = run_phase1(phase0.manifest, df_all, output_dir)
+    println("[analysis] phase 3: interactions")
+    run_phase3(phase1.df_strict, output_dir)
+    println("[analysis] done. outputs at: $output_dir")
+    return nothing
+end
+
 function run_phase8_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
                            output_dir = joinpath(@__DIR__, "outputs"))
     ensure_output_dirs(output_dir)
@@ -166,8 +181,9 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     # run_phase1_only()
     # run_phase9_only()
-    # run_phase8_only()
-    run_all_analyses()
+    run_phase8_only()
+    # run_phase6_only()
+    # run_all_analyses()
     # run_all_analyses_both()
     copy_results_for_overleaf(
         joinpath(@__DIR__, "outputs"),
