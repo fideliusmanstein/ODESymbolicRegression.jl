@@ -1,12 +1,12 @@
 #!/bin/bash
 # single_problem_hs.sh
 #
-# Submits a hyperparameter grid for a single benchmark problem: ss_5genes4
+# Submits a hyperparameter grid for a single benchmark problem: inhosc2
 #
 # Grid:
 #   n_points              = (100, 250, 500)
 #   n_trajectories        = (5, 10, 15, 20)
-#   noise_std             = (0.0, 0.01, 0.03, 0.05)
+#   noise_std             = (0.01, 0.03, 0.05)
 #   niterations_derivative = (150, 250, 500)
 #
 # Fixed settings:
@@ -16,9 +16,9 @@
 #   operator_set          = square_inv  → binary=(+,-,*,/), unary=(square,inv)
 #   complexity            = 15
 #
-# Total jobs: 2 x 3 x 4 x 4 x 3 = 288
+# Total jobs: 2 x 3 x 4 x 3 x 3 = 216
 #
-# Runtime estimate (based on ss_5genes4 @ n_pts=100, n_traj=1, niter=150 → ~63s):
+# Runtime estimate (based on inhosc2 @ n_pts=100, n_traj=1, niter=150 → ~63s):
 #   Time scales as ~63s * (n_pts/100) * n_traj * (niter/150)
 #   Fastest job  (n_pts=100, n_traj=5,  niter=150): ~5 min
 #   Median job   (n_pts=250, n_traj=10, niter=250): ~42 min
@@ -34,17 +34,17 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Hyperparameter grid
 # ---------------------------------------------------------------------------
-PROBLEM="ss_5genes4"
+PROBLEM="inhosc2"
 N_POINTS_LIST=(100 250 500)
 NUM_TRAJ_LIST=(5 10 15 20)
-NOISE_LEVELS=(0.0 0.01 0.03 0.05)
+NOISE_LEVELS=(0.01 0.03 0.05)
 NITER_DERIV_LIST=(150 250 500)
 
 # Fixed settings
 COMBO_MODES=(knee0 search)   # knee_point and combination_search, both with niterations_integration=0
 OPERATOR_SET="square_inv"   # binary=(+,-,*,/), unary=(square,inv)  — no sqrtp, no powc
 COMPLEXITY=15
-RESULTS_DIR="single_problem_hs"
+RESULTS_DIR="inhosc2_hs"
 
 # ---------------------------------------------------------------------------
 # Derived counts
