@@ -38,11 +38,57 @@ function _extract_problem_sections(txt_path::AbstractString)
     return rows
 end
 
+function _build_per_equation_change_table(changes::DataFrame)
+    rows = NamedTuple[]
+    for row in eachrow(changes)
+        inits  = row.initial_equations  == "" ? String[] : String.(split(row.initial_equations,  " || "))
+        finals = row.final_equations    == "" ? String[] : String.(split(row.final_equations,    " || "))
+        n = max(length(inits), length(finals))
+        for i in 1:n
+            init_eq  = i <= length(inits)  ? inits[i]  : ""
+            final_eq = i <= length(finals) ? finals[i] : ""
+            both = !isempty(init_eq) && !isempty(final_eq)
+            push!(rows, (
+                problem     = row.problem,
+                state_index = i,
+                eq_label    = "$(row.problem):X$i",
+                changed     = both && init_eq != final_eq,
+                missing_eq  = !both,
+            ))
+        end
+    end
+    isempty(rows) && return DataFrame()
+    return DataFrame(rows)
+end
+
+function _plot_equation_change_frequency(per_eq::DataFrame, phase_dir::AbstractString)
+    isempty(per_eq) && return
+    by_eq = combine(groupby(per_eq, [:problem, :state_index, :eq_label]),
+        :changed => sum => :n_changed,
+        nrow    => :n_runs)
+    sort!(by_eq, :n_changed, rev = true)
+    top = by_eq[1:min(40, nrow(by_eq)), :]
+    top = filter(r -> r.n_changed > 0, top)
+    isempty(top) && return
+
+    fig = Figure(size = (max(800, 32 * nrow(top)), 520))
+    ax  = Axis(fig[1, 1];
+        title    = "Most frequently changed equations (integration refinement)",
+        xlabel   = "Equation",
+        ylabel   = "Number of runs where equation changed",
+    )
+    xs = 1:nrow(top)
+    barplot!(ax, xs, top.n_changed)
+    ax.xticks = (xs, top.eq_label)
+    ax.xticklabelrotation = pi / 4
+    save_plot(fig, joinpath(phase_dir, "equation_change_frequency.png"))
+end
+
 function _build_equation_change_table(manifest::DataFrame)
     rows = NamedTuple[]
 
-    knee_manifest = filter(r -> r.mode == "knee" && r.completed_run && r.has_txt, manifest)
-    for run in eachrow(knee_manifest)
+    all_manifest = filter(r -> r.completed_run && r.has_txt, manifest)
+    for run in eachrow(all_manifest)
         problem_rows = _extract_problem_sections(run.txt_path)
         for problem_row in problem_rows
             push!(rows, merge((
@@ -68,13 +114,13 @@ function run_phase7(manifest::DataFrame, output_dir::AbstractString)
     mkpath(phase_dir)
 
     changes = _build_equation_change_table(manifest)
-    CSV.write(joinpath(phase_dir, "knee_initial_final_equation_changes.csv"), changes)
+    CSV.write(joinpath(phase_dir, "initial_final_equation_changes.csv"), changes)
 
     if nrow(changes) == 0
         lines = [
-            "Phase 7 Report - Knee Initial vs Final Equation Changes",
+            "Phase 7 Report - Initial vs Final Equation Changes",
             "",
-            "No completed knee runs with parsable txt reports were found.",
+            "No completed runs with parsable txt reports were found.",
         ]
         write_text_report(joinpath(phase_dir, "report.txt"), lines)
         return (changes = changes, by_run = DataFrame(), by_problem = DataFrame())
@@ -85,19 +131,19 @@ function run_phase7(manifest::DataFrame, output_dir::AbstractString)
         :equations_missing => sum => :n_missing,
         nrow => :n_problems)
     by_run.changed_fraction = by_run.n_changed ./ by_run.n_problems
-    CSV.write(joinpath(phase_dir, "knee_equation_change_summary_by_run.csv"), sort!(by_run, [:noise, :n_points, :trajectories]))
+    CSV.write(joinpath(phase_dir, "equation_change_summary_by_run.csv"), sort!(by_run, [:noise, :n_points, :trajectories]))
 
     by_problem = combine(groupby(changes, :problem),
         :equations_changed => sum => :n_changed,
         :equations_missing => sum => :n_missing,
         nrow => :n_runs)
     by_problem.changed_fraction = by_problem.n_changed ./ by_problem.n_runs
-    CSV.write(joinpath(phase_dir, "knee_equation_change_summary_by_problem.csv"), sort!(by_problem, [:n_changed, :problem], rev = [true, false]))
+    CSV.write(joinpath(phase_dir, "equation_change_summary_by_problem.csv"), sort!(by_problem, [:n_changed, :problem], rev = [true, false]))
 
     ranked = sort(by_run, :changed_fraction, rev = true)
     fig = Figure(size = (max(1000, 35 * nrow(ranked)), 550))
     ax = Axis(fig[1, 1],
-        title = "Knee runs with changed final equations",
+        title = "Runs with changed final equations",
         xlabel = "Run",
         ylabel = "Fraction of problems with changed equations",
         ytickformat = v -> string.(round.(Int, v .* 100)) .* "%",
@@ -107,16 +153,16 @@ function run_phase7(manifest::DataFrame, output_dir::AbstractString)
     barplot!(ax, xs, ranked.changed_fraction)
     ax.xticks = (xs, [combo_label(r) for r in eachrow(ranked)])
     ax.xticklabelrotation = pi / 4
-    save_plot(fig, joinpath(phase_dir, "knee_equation_change_rate_by_run.png"))
+    save_plot(fig, joinpath(phase_dir, "equation_change_rate_by_run.png"))
 
     total_changed = sum(changes.equations_changed)
     total_missing = sum(changes.equations_missing)
     total_problems = nrow(changes)
 
     lines = String[]
-    push!(lines, "Phase 7 Report - Knee Initial vs Final Equation Changes")
+    push!(lines, "Phase 7 Report - Initial vs Final Equation Changes")
     push!(lines, "")
-    push!(lines, "Scope: completed knee_point runs with txt reports only")
+    push!(lines, "Scope: all completed runs (knee + search) with txt reports")
     push!(lines, "Total parsed knee problem instances: $(total_problems)")
     push!(lines, "Problems with different initial/final equations: $(total_changed)")
     push!(lines, "Problems with missing equation blocks: $(total_missing)")
@@ -135,6 +181,9 @@ function run_phase7(manifest::DataFrame, output_dir::AbstractString)
     end
 
     write_text_report(joinpath(phase_dir, "report.txt"), lines)
+
+    per_eq = _build_per_equation_change_table(changes)
+    _plot_equation_change_frequency(per_eq, phase_dir)
 
     return (changes = changes, by_run = by_run, by_problem = by_problem)
 end

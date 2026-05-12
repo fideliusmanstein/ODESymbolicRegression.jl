@@ -167,6 +167,17 @@ function run_phase3_only(; results_dir = normpath(joinpath(@__DIR__, "..", "serv
     return nothing
 end
 
+function run_phase7_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
+                           output_dir = joinpath(@__DIR__, "outputs"))
+    ensure_output_dirs(output_dir)
+    println("[analysis] phase 0: building manifest")
+    phase0 = run_phase0(results_dir, output_dir)
+    println("[analysis] phase 7: initial vs final equation changes")
+    run_phase7(phase0.manifest, output_dir)
+    println("[analysis] done. outputs at: $output_dir")
+    return nothing
+end
+
 function run_phase8_only(; results_dir = normpath(joinpath(@__DIR__, "..", "server_results", "hyperparameter_search")),
                            output_dir = joinpath(@__DIR__, "outputs"))
     ensure_output_dirs(output_dir)
@@ -179,9 +190,7 @@ function run_phase8_only(; results_dir = normpath(joinpath(@__DIR__, "..", "serv
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    # run_phase1_only()
-    # run_phase9_only()
-    run_phase8_only()
+    run_phase7_only()
     # run_phase6_only()
     # run_all_analyses()
     # run_all_analyses_both()
