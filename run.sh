@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=knee+s2_err01
+#SBATCH --job-name=search_noise0_03_pts250_traj20_niter500
 #SBATCH --output=benchmark_output/%x_results_%j.txt
 #SBATCH --error=benchmark_output/%x_errors_%j.txt
 #SBATCH --nodes=1
@@ -31,6 +31,14 @@ export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 export BENCHMARK_RUN_NAME="${SLURM_JOB_NAME:-local}"
 export OMP_NUM_THREADS=1
 export BLAS_NUM_THREADS=1
+
+# Hyperparameters for this run
+export COMBO_MODE="search"
+export NOISE_STD="0.03"
+export N_POINTS="250"
+export NUM_TRAJECTORIES="20"
+export NITER_DERIVATIVE="500"
+export RESULTS_DIR="benchmark_results"
 
 echo "Job: ${SLURM_JOB_NAME:-local} (${SLURM_JOB_ID:-n/a})"
 echo "Started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
