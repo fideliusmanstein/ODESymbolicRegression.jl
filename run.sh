@@ -32,13 +32,18 @@ export BENCHMARK_RUN_NAME="${SLURM_JOB_NAME:-local}"
 export OMP_NUM_THREADS=1
 export BLAS_NUM_THREADS=1
 
-# Hyperparameters for this run
-export COMBO_MODE="search"
-export NOISE_STD="0.03"
-export N_POINTS="250"
-export NUM_TRAJECTORIES="20"
-export NITER_DERIVATIVE="500"
-export RESULTS_DIR="benchmark_results"
+# Hyperparameters for this run.
+# Values are taken from the environment if already set (e.g. via
+# `sbatch --export=ALL,NOISE_STD=...` from a sweep script); otherwise these
+# defaults are used. Do NOT hardcode unconditional `export`s here -- that
+# silently overrides whatever a sweep script passed in via --export.
+export COMBO_MODE="${COMBO_MODE:-search}"
+export NOISE_STD="${NOISE_STD:-0.03}"
+export N_POINTS="${N_POINTS:-250}"
+export NUM_TRAJECTORIES="${NUM_TRAJECTORIES:-20}"
+export NITER_DERIVATIVE="${NITER_DERIVATIVE:-500}"
+export RESULTS_DIR="${RESULTS_DIR:-benchmark_results}"
+export PROBLEMS_OVERRIDE="${PROBLEMS_OVERRIDE:-}"
 
 echo "Job: ${SLURM_JOB_NAME:-local} (${SLURM_JOB_ID:-n/a})"
 echo "Started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
