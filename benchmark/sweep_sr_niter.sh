@@ -39,8 +39,14 @@ RESULTS_DIR="sr_niter"
 # the "fast" batch (the other 20 problems) finish quickly for early results,
 # while the hard batch runs longer in the background. Merge both batches'
 # results afterward for the full 22-problem picture.
-HARD_PROBLEMS="ss_5genes4,threeGenes1"
-FAST_PROBLEMS="bifeedb1,bifeedb2,cytokine1,feedf1,gma_bifeedb1,gma_feedf1,gma_inhosc1,inhosc1,inhosc2,metabol1,osc1,simpleFb1,simpleLin2,ss_bifeedb1,ss_branch2,ss_cadBA1,ss_cascade1,ss_ethanolferm1,ss_feedf1,ss_inhosc1"
+#
+# NOTE: problem names below are semicolon-separated, NOT comma-separated.
+# `sbatch --export=ALL,VAR=val,...` itself splits its whole argument on
+# commas, so a comma-joined list here would get silently truncated to just
+# its first entry once passed through --export. benchmark.jl's
+# PROBLEMS_OVERRIDE parser splits on ";" to match.
+HARD_PROBLEMS="ss_5genes4;threeGenes1"
+FAST_PROBLEMS="bifeedb1;bifeedb2;cytokine1;feedf1;gma_bifeedb1;gma_feedf1;gma_inhosc1;inhosc1;inhosc2;metabol1;osc1;simpleFb1;simpleLin2;ss_bifeedb1;ss_branch2;ss_cadBA1;ss_cascade1;ss_ethanolferm1;ss_feedf1;ss_inhosc1"
 
 # ---------------------------------------------------------------------------
 # Derived counts

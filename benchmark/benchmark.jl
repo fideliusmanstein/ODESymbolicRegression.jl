@@ -93,7 +93,10 @@ const OPERATOR_SET      = get(ENV, "OPERATOR_SET", "standard")
 const MAX_PROBLEMS_TO_TEST = nothing  # Options: nothing, 5, 10, 20, etc.
 const TIMEOUT_SECONDS = nothing  # Options: nothing, 60, 180, 300, etc.
 const PROBLEMS_OVERRIDE = let s = get(ENV, "PROBLEMS_OVERRIDE", "")
-                              isempty(s) ? nothing : String.(split(s, ","))
+                              # Semicolon-delimited, NOT comma: sbatch --export=ALL,VAR=val,...
+                              # splits its whole argument on commas, so a comma-joined list here
+                              # would get silently truncated to just the first entry.
+                              isempty(s) ? nothing : String.(split(s, ";"))
                           end
 
 # Resolve combo mode from ENV
