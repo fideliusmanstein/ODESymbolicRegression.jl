@@ -1,10 +1,9 @@
 #!/bin/bash
 # sweep_sr_niter_per_problem.sh
 #
-# Per-problem parallel variant of sweep_sr_niter.sh, for the slow
-# niterations_derivative settings (450, 600). Instead of one SLURM job
-# running all 22 problems sequentially (or a fast/hard 2-way split), this
-# submits one SLURM job PER PROBLEM. Each job only needs to hold one
+# Per-problem parallel variant of sweep_sr_niter.sh. Instead of one SLURM
+# job running all 22 problems sequentially (or a fast/hard 2-way split),
+# this submits one SLURM job PER PROBLEM. Each job only needs to hold one
 # problem's compute, so many can run concurrently on the same node
 # (node has far more cores than a single job's --cpus-per-task uses).
 #
@@ -20,7 +19,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Grid
 # ---------------------------------------------------------------------------
-NITER_LIST=(450 600)
+NITER_LIST=(150 300 450 600)
 
 # Fixed settings (must match sweep_sr_niter.sh for a valid comparison)
 NOISE="0.01"
