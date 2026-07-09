@@ -42,6 +42,14 @@ PROBLEMS=(
 # node if the scheduler queues them instead of running them side by side.
 CPUS_PER_TASK=8
 
+# Memory per job. run.sh's own #SBATCH default is 6G, but observed actual
+# usage per problem is ~2G RSS (checked via `ps aux` while jobs were
+# running) -- SLURM packs jobs by what they RESERVE, not what they actually
+# use, so requesting the full 6G was capping concurrency at ~12-13 jobs on a
+# 93G node even though real usage was only ~29G. 3G leaves ~50% headroom
+# over observed peak for problems with more states.
+MEM_PER_TASK="3G"
+
 # ---------------------------------------------------------------------------
 # Derived counts
 # ---------------------------------------------------------------------------
@@ -98,6 +106,7 @@ for niter in "${NITER_LIST[@]}"; do
         sbatch \
             --job-name="$job_name" \
             --cpus-per-task="$CPUS_PER_TASK" \
+            --mem="$MEM_PER_TASK" \
             --output="benchmark_output/%x_results_%j.txt" \
             --error="benchmark_output/%x_errors_%j.txt" \
             --export=ALL,\
