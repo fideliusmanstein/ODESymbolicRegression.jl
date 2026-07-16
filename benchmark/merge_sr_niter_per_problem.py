@@ -69,26 +69,25 @@ def merge_csv(csv_paths, out_csv, expected_problems=None):
 
 
 def merge_json(json_paths, out_json):
-    merged = None
-    all_results = []
+    # Each file is a flat dict keyed directly by problem name
+    # (e.g. {"bifeedb1": {...}, "cytokine1": {...}}), for both the
+    # per-problem and the old fast/hard batch json formats. Just merge
+    # all the top-level keys together.
+    merged = {}
 
     for path in json_paths:
         with open(path) as f:
             data = json.load(f)
-        if merged is None:
-            merged = dict(data)
-        all_results.extend(data.get("results", []))
+        merged.update(data)
 
-    if merged is None:
+    if not merged:
         raise SystemExit("No json files found -- nothing to merge.")
-
-    merged["results"] = all_results
 
     os.makedirs(os.path.dirname(out_json) or ".", exist_ok=True)
     with open(out_json, "w") as f:
         json.dump(merged, f, indent=4)
 
-    print(f"[merge] {len(all_results)} problems written to {out_json}")
+    print(f"[merge] {len(merged)} problems written to {out_json}")
 
 
 def main():

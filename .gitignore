@@ -30,6 +30,7 @@ additional_hs_searches/
 thesis_figures/
 analysis_exports/
 server_results/
+THESIS_TODOS.md
 *.txt
 !LICENSE
 !README.md
