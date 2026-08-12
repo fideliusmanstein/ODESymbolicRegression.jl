@@ -63,7 +63,7 @@ function _plot_noise_npoints_heatmap(df::DataFrame, phase_dir::AbstractString)
     noise_idx   = Dict(v => i for (i, v) in enumerate(noise_vals))
 
     for (metric, col, fig_label, cmap) in [
-            (:avg_r2,         :avg_r2,         "Median avg R²: noise vs n\\_points",          :viridis),
+            (:avg_r2,         :avg_r2,         "Median avg R²: noise vs n_points",          :viridis),
             (:discovery_time, :discovery_time,  "Median discovery time (s)", :plasma),
         ]
 
